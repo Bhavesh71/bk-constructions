@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+}
+
+enum SiteStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role          @default(SUPERVISOR)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  dailyRecords DailyRecord[]
+  budgetEntries BudgetEntry[]
+  assignedSites SiteUser[]
+}
+
+model Site {
+  id              String        @id @default(cuid())
+  name            String
+  location        String
+  status          SiteStatus    @default(ACTIVE)
+  description     String?
+  startDate       DateTime?
+  expectedEndDate DateTime?
+  expectedRevenue Float?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  dailyRecords    DailyRecord[]
+  budgetEntries   BudgetEntry[]
+  assignedUsers   SiteUser[]
+}
+
+model SiteUser {
+  id        String   @id @default(cuid())
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([siteId, userId])
+}
+
+model BudgetEntry {
+  id          String   @id @default(cuid())
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId      String
+  amount      Float
+  note        String?
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+  createdAt   DateTime @default(now())
+}
+
+model DailyRecord {
+  id              String          @id @default(cuid())
+  site            Site            @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId          String
+  date            DateTime        @db.Date
+  totalLabour     Float           @default(0)
+  totalMaterial   Float           @default(0)
+  totalOther      Float           @default(0)
+  grandTotal      Float           @default(0)
+  notes           String?
+  createdBy       User            @relation(fields: [createdById], references: [id])
+  createdById     String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  labourEntries   LabourEntry[]
+  materialEntries MaterialEntry[]
+  otherExpenses   OtherExpense[]
+
+  @@unique([siteId, date])
+}
+
+model Labour {
+  id            String        @id @default(cuid())
+  name          String
+  designation   String
+  dailyWage     Float
+  overtimeRate  Float         @default(0)
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  labourEntries LabourEntry[]
+}
+
+model Material {
+  id              String          @id @default(cuid())
+  name            String
+  unit            String
+  defaultRate     Float
+  category        String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  materialEntries MaterialEntry[]
+}
+
+model LabourEntry {
+  id            String      @id @default(cuid())
+  dailyRecord   DailyRecord @relation(fields: [dailyRecordId], references: [id], onDelete: Cascade)
+  dailyRecordId String
+  labour        Labour      @relation(fields: [labourId], references: [id])
+  labourId      String
+  overtimeHours Float       @default(0)
+  cost          Float
+  present       Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+}
+
+model MaterialEntry {
+  id            String      @id @default(cuid())
+  dailyRecord   DailyRecord @relation(fields: [dailyRecordId], references: [id], onDelete: Cascade)
+  dailyRecordId String
+  material      Material    @relation(fields: [materialId], references: [id])
+  materialId    String
+  quantity      Float
+  rate          Float
+  total         Float
+  createdAt     DateTime    @default(now())
+}
+
+model OtherExpense {
+  id            String      @id @default(cuid())
+  dailyRecord   DailyRecord @relation(fields: [dailyRecordId], references: [id], onDelete: Cascade)
+  dailyRecordId String
+  category      String
+  amount        Float
+  description   String?
+  createdAt     DateTime    @default(now())
+}

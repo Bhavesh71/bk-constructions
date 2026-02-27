@@ -1,0 +1,18 @@
+import { getSites } from '@/actions/sites'
+import { getDailyRecords } from '@/actions/daily-records'
+import { ReportsClient } from '@/components/reports/ReportsClient'
+
+export default async function ReportsPage() {
+  const [sites, records] = await Promise.all([getSites(), getDailyRecords(undefined, 500)])
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display font-bold text-gray-900 text-2xl">Reports & Analytics</h2>
+        <p className="text-gray-500 text-sm mt-0.5">Filter, analyze and export your expense data</p>
+      </div>
+
+      <ReportsClient sites={sites as any} records={records as any} />
+    </div>
+  )
+}

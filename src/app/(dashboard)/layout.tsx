@@ -1,0 +1,22 @@
+'use client'
+
+import { useState } from 'react'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { TopNav } from '@/components/layout/TopNav'
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  return (
+    <div className="min-h-screen bg-surface">
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <TopNav onMenuClick={() => setSidebarOpen(true)} />
+
+      <main className="lg:ml-[260px] pt-16 min-h-screen">
+        <div className="p-4 lg:p-8 animate-fade-in">
+          {children}
+        </div>
+      </main>
+    </div>
+  )
+}
