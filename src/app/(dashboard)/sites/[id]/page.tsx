@@ -1,8 +1,9 @@
 import { getSiteById } from '@/actions/sites'
+import { getUsers } from '@/actions/users'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { formatCurrency, formatDate, getSiteStatusColor, getBudgetStatus } from '@/lib/utils'
-import { ArrowLeft, MapPin, Calendar, TrendingUp, Plus } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SiteTabs } from '@/components/sites/SiteTabs'
@@ -13,8 +14,15 @@ interface Props {
 
 export default async function SiteDetailPage({ params }: Props) {
   try {
-    const [site, session] = await Promise.all([getSiteById(params.id), getServerSession(authOptions)])
+    const session = await getServerSession(authOptions)
     const isAdmin = session?.user?.role === 'ADMIN'
+
+    // Fetch site + all users in parallel (users only needed for admin)
+    const [site, allUsers] = await Promise.all([
+      getSiteById(params.id),
+      isAdmin ? getUsers() : Promise.resolve([]),
+    ])
+
     const status = getSiteStatusColor(site.status)
     const budget = getBudgetStatus(site.totalSpent, site.totalBudget)
     const pct = site.totalBudget > 0 ? Math.min(100, (site.totalSpent / site.totalBudget) * 100) : 0
@@ -40,22 +48,21 @@ export default async function SiteDetailPage({ params }: Props) {
             </div>
           </div>
           <Link href={`/daily-entry?siteId=${site.id}`} className="btn-primary">
-            <Plus className="w-4 h-4" />
-            Daily Entry
+            <Plus className="w-4 h-4" />Daily Entry
           </Link>
         </div>
 
         {/* Financial Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Total Budget', value: formatCurrency(site.totalBudget), className: 'text-gray-900' },
-            { label: 'Total Spent', value: formatCurrency(site.totalSpent), className: 'text-gray-900' },
-            { label: 'Remaining', value: formatCurrency(Math.max(0, site.remainingBudget)), className: site.remainingBudget < 0 ? 'text-red-600' : 'text-green-600' },
-            { label: 'Expected Revenue', value: site.expectedRevenue ? formatCurrency(site.expectedRevenue) : 'N/A', className: 'text-gray-900' },
+            { label: 'Total Budget', value: formatCurrency(site.totalBudget), cls: 'text-gray-900' },
+            { label: 'Total Spent', value: formatCurrency(site.totalSpent), cls: 'text-gray-900' },
+            { label: 'Remaining', value: formatCurrency(Math.abs(site.remainingBudget)), cls: site.remainingBudget < 0 ? 'text-red-600' : 'text-green-600' },
+            { label: 'Expected Revenue', value: site.expectedRevenue ? formatCurrency(site.expectedRevenue) : 'N/A', cls: 'text-gray-900' },
           ].map((item) => (
             <div key={item.label} className="card py-4">
               <p className="text-xs text-gray-400 mb-1">{item.label}</p>
-              <p className={`font-display font-bold text-xl ${item.className}`}>{item.value}</p>
+              <p className={`font-display font-bold text-xl ${item.cls}`}>{item.value}</p>
             </div>
           ))}
         </div>
@@ -82,7 +89,7 @@ export default async function SiteDetailPage({ params }: Props) {
         </div>
 
         {/* Tabs */}
-        <SiteTabs site={site as any} isAdmin={isAdmin} />
+        <SiteTabs site={site as any} isAdmin={isAdmin} allUsers={allUsers as any} />
       </div>
     )
   } catch {

@@ -1,22 +1,62 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, Users, Package, Coins, Save, Loader2, RefreshCw, X } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  Plus, Trash2, Users, Package, Coins, Save,
+  Loader2, RefreshCw, X, ChevronDown, Eye,
+} from 'lucide-react'
 import { saveDailyRecord, getDailyRecord } from '@/actions/daily-records'
 import { formatCurrency } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
-interface Labour { id: string; name: string; designation: string; dailyWage: number; overtimeRate: number }
-interface Material { id: string; name: string; unit: string; defaultRate: number; category: string }
-interface Site { id: string; name: string; location: string }
+interface Labour {
+  id: string
+  name: string
+  designation: string
+  dailyWage: number
+}
 
-interface LabourEntry { labourId: string; name: string; designation: string; dailyWage: number; overtimeRate: number; present: boolean; overtimeHours: number }
-interface MaterialEntry { materialId: string; name: string; unit: string; quantity: number; rate: number }
-interface OtherEntry { category: string; amount: number; description: string }
+interface Material {
+  id: string
+  name: string
+  unit: string
+  defaultRate: number
+  category: string
+}
 
-const OTHER_CATEGORIES = ['Transport', 'Equipment Rental', 'Fuel', 'Food', 'Utilities', 'Security', 'Miscellaneous']
+interface Site {
+  id: string
+  name: string
+  location: string
+}
+
+interface LabourEntry {
+  labourId: string
+  name: string
+  designation: string
+  rate: number           // editable, defaults to dailyWage
+  present: boolean
+}
+
+interface MaterialEntry {
+  materialId: string
+  name: string
+  unit: string
+  quantity: number
+  rate: number
+}
+
+interface OtherEntry {
+  category: string
+  amount: number
+  description: string
+}
+
+const OTHER_CATEGORIES = [
+  'Transport', 'Equipment Rental', 'Fuel', 'Food', 'Utilities', 'Security', 'Miscellaneous',
+]
 
 interface Props {
   sites: Site[]
@@ -34,16 +74,21 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [activeSection, setActiveSection] = useState<'labour' | 'material' | 'other'>('labour')
+  const [showSummary, setShowSummary] = useState(false)
 
-  // Labour entries - initialized from all labours
   const [labourEntries, setLabourEntries] = useState<LabourEntry[]>(
-    labours.map((l) => ({ labourId: l.id, name: l.name, designation: l.designation, dailyWage: l.dailyWage, overtimeRate: l.overtimeRate, present: false, overtimeHours: 0 }))
+    labours.map((l) => ({
+      labourId: l.id,
+      name: l.name,
+      designation: l.designation,
+      rate: l.dailyWage,
+      present: false,
+    }))
   )
   const [materialEntries, setMaterialEntries] = useState<MaterialEntry[]>([])
   const [otherEntries, setOtherEntries] = useState<OtherEntry[]>([])
   const [existingRecord, setExistingRecord] = useState(false)
 
-  // Load existing record when site or date changes
   const loadExistingRecord = useCallback(async () => {
     if (!siteId || !date) return
     setLoading(true)
@@ -52,22 +97,18 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
       if (record) {
         setExistingRecord(true)
         setNotes(record.notes || '')
-
-        // Rebuild labour entries
-        const newLabourEntries = labours.map((l) => {
-          const existing = record.labourEntries.find((e: any) => e.labourId === l.id)
-          return {
-            labourId: l.id,
-            name: l.name,
-            designation: l.designation,
-            dailyWage: l.dailyWage,
-            overtimeRate: l.overtimeRate,
-            present: existing?.present || false,
-            overtimeHours: existing?.overtimeHours || 0,
-          }
-        })
-        setLabourEntries(newLabourEntries)
-
+        setLabourEntries(
+          labours.map((l) => {
+            const existing = record.labourEntries.find((e: any) => e.labourId === l.id)
+            return {
+              labourId: l.id,
+              name: l.name,
+              designation: l.designation,
+              rate: existing?.rate ?? l.dailyWage,
+              present: existing?.present || false,
+            }
+          })
+        )
         setMaterialEntries(
           record.materialEntries.map((e: any) => ({
             materialId: e.materialId,
@@ -87,12 +128,16 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
       } else {
         setExistingRecord(false)
         setNotes('')
-        setLabourEntries(labours.map((l) => ({ labourId: l.id, name: l.name, designation: l.designation, dailyWage: l.dailyWage, overtimeRate: l.overtimeRate, present: false, overtimeHours: 0 })))
+        setLabourEntries(labours.map((l) => ({
+          labourId: l.id,
+          name: l.name,
+          designation: l.designation,
+          rate: l.dailyWage,
+          present: false,
+        })))
         setMaterialEntries([])
         setOtherEntries([])
       }
-    } catch (e) {
-      // New record
     } finally {
       setLoading(false)
     }
@@ -100,361 +145,442 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
 
   useEffect(() => { loadExistingRecord() }, [loadExistingRecord])
 
-  // Totals
-  const labourTotal = labourEntries.filter(e => e.present).reduce((sum, e) => sum + e.dailyWage + e.overtimeHours * e.overtimeRate, 0)
-  const materialTotal = materialEntries.reduce((sum, e) => sum + e.quantity * e.rate, 0)
-  const otherTotal = otherEntries.reduce((sum, e) => sum + e.amount, 0)
-  const grandTotal = labourTotal + materialTotal + otherTotal
+  // ── Totals ────────────────────────────────────────────────────────────────
+  const totals = useMemo(() => {
+    const labour = labourEntries.filter(e => e.present).reduce((s, e) => s + e.rate, 0)
+    const material = materialEntries.reduce((s, e) => s + e.quantity * e.rate, 0)
+    const other = otherEntries.reduce((s, e) => s + e.amount, 0)
+    return { labour, material, other, grand: labour + material + other }
+  }, [labourEntries, materialEntries, otherEntries])
 
-  function toggleLabour(id: string) {
-    setLabourEntries(prev => prev.map(e => e.labourId === id ? { ...e, present: !e.present } : e))
-  }
-  function setOvertime(id: string, hours: number) {
-    setLabourEntries(prev => prev.map(e => e.labourId === id ? { ...e, overtimeHours: hours } : e))
+  const presentCount = labourEntries.filter(e => e.present).length
+
+  // ── Labour helpers ─────────────────────────────────────────────────────────
+  function togglePresent(idx: number) {
+    setLabourEntries(prev => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], present: !next[idx].present }
+      return next
+    })
   }
 
+  function setRate(idx: number, rate: number) {
+    setLabourEntries(prev => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], rate }
+      return next
+    })
+  }
+
+  // ── Material helpers ───────────────────────────────────────────────────────
   function addMaterial(mat: Material) {
-    if (materialEntries.find(e => e.materialId === mat.id)) return
-    setMaterialEntries(prev => [...prev, { materialId: mat.id, name: mat.name, unit: mat.unit, quantity: 1, rate: mat.defaultRate }])
-  }
-  function removeMaterial(id: string) { setMaterialEntries(prev => prev.filter(e => e.materialId !== id)) }
-  function updateMaterial(id: string, field: 'quantity' | 'rate', value: number) {
-    setMaterialEntries(prev => prev.map(e => e.materialId === id ? { ...e, [field]: value } : e))
-  }
-
-  function addOther() { setOtherEntries(prev => [...prev, { category: 'Transport', amount: 0, description: '' }]) }
-  function removeOther(i: number) { setOtherEntries(prev => prev.filter((_, idx) => idx !== i)) }
-  function updateOther(i: number, field: keyof OtherEntry, value: string | number) {
-    setOtherEntries(prev => prev.map((e, idx) => idx === i ? { ...e, [field]: value } : e))
+    if (materialEntries.find(e => e.materialId === mat.id)) {
+      toast.error('Material already added')
+      return
+    }
+    setMaterialEntries(prev => [
+      ...prev,
+      { materialId: mat.id, name: mat.name, unit: mat.unit, quantity: 1, rate: mat.defaultRate },
+    ])
   }
 
-  async function handleSave() {
-    if (!siteId) { toast.error('Please select a site'); return }
-    if (!date) { toast.error('Please select a date'); return }
+  function updateMaterial(idx: number, field: 'quantity' | 'rate', value: number) {
+    setMaterialEntries(prev => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], [field]: value }
+      return next
+    })
+  }
 
+  function removeMaterial(idx: number) {
+    setMaterialEntries(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  // ── Other helpers ──────────────────────────────────────────────────────────
+  function addOther() {
+    setOtherEntries(prev => [...prev, { category: OTHER_CATEGORIES[0], amount: 0, description: '' }])
+  }
+
+  function updateOther(idx: number, field: keyof OtherEntry, value: any) {
+    setOtherEntries(prev => {
+      const next = [...prev]
+      next[idx] = { ...next[idx], [field]: value }
+      return next
+    })
+  }
+
+  function removeOther(idx: number) {
+    setOtherEntries(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  async function handleSubmit() {
+    if (!siteId) { toast.error('Select a site'); return }
     setSaving(true)
     try {
-      const result = await saveDailyRecord({
+      const payload = {
         siteId,
         date,
         notes,
-        labourEntries: labourEntries.map(e => ({ labourId: e.labourId, present: e.present, overtimeHours: e.overtimeHours })),
-        materialEntries: materialEntries.map(e => ({ materialId: e.materialId, quantity: e.quantity, rate: e.rate })),
-        otherExpenses: otherEntries.filter(e => e.amount > 0).map(e => ({ category: e.category, amount: e.amount, description: e.description })),
-      })
+        labourEntries: labourEntries
+          .filter(e => e.present)
+          .map(e => ({
+            labourId: e.labourId,
+            rate: e.rate,
+            present: true,
+            cost: e.rate,
+          })),
+        materialEntries: materialEntries.map(e => ({
+          materialId: e.materialId,
+          quantity: e.quantity,
+          rate: e.rate,
+          total: e.quantity * e.rate,
+        })),
+        otherExpenses: otherEntries.map(e => ({
+          category: e.category,
+          amount: e.amount,
+          description: e.description,
+        })),
+      }
 
-      if (result.success) {
-        toast.success(existingRecord ? 'Record updated!' : 'Record saved!')
-        setExistingRecord(true)
-        router.refresh()
+      const res = await saveDailyRecord(payload)
+      if (res.success) {
+        toast.success(existingRecord ? 'Record updated' : 'Record saved')
+        router.push('/records')
       } else {
-        toast.error(result.error || 'Failed to save')
+        toast.error(res.error || 'Failed to save')
       }
     } finally {
       setSaving(false)
     }
   }
 
-  const presentCount = labourEntries.filter(e => e.present).length
-
-  const materialsByCategory = materials.reduce((acc, m) => {
-    if (!acc[m.category]) acc[m.category] = []
-    acc[m.category].push(m)
-    return acc
-  }, {} as Record<string, Material[]>)
+  const sections = [
+    { id: 'labour' as const, label: 'Labour', icon: Users, badge: `${presentCount} present` },
+    { id: 'material' as const, label: 'Materials', icon: Package, badge: `${materialEntries.length} items` },
+    { id: 'other' as const, label: 'Other', icon: Coins, badge: `${otherEntries.length} items` },
+  ]
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      {/* Main Form */}
-      <div className="flex-1 space-y-4">
-        {/* Site & Date selector */}
-        <div className="card">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="label">Site *</label>
-              <select className="input" value={siteId} onChange={e => setSiteId(e.target.value)}>
-                <option value="">Select a site</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.name} — {s.location}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Date *</label>
-              <input className="input" type="date" value={date} onChange={e => setDate(e.target.value)} max={new Date().toISOString().split('T')[0]} />
-            </div>
-          </div>
-
-          {existingRecord && (
-            <div className="mt-3 flex items-center gap-2 text-amber-600 bg-amber-50 px-3 py-2 rounded-lg text-sm">
-              <RefreshCw className="w-4 h-4" />
-              <span>Editing existing record for this site and date. Saving will overwrite it.</span>
-            </div>
-          )}
+    <div className="max-w-3xl space-y-5">
+      {/* Header: site + date */}
+      <div className="card grid sm:grid-cols-3 gap-4">
+        <div className="sm:col-span-2">
+          <label className="label">Construction Site</label>
+          <select className="input" value={siteId} onChange={e => setSiteId(e.target.value)}>
+            {sites.map(s => <option key={s.id} value={s.id}>{s.name} — {s.location}</option>)}
+          </select>
         </div>
-
-        {loading ? (
-          <div className="card flex items-center justify-center py-12 text-gray-400">
-            <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading record…
+        <div>
+          <label className="label">Date</label>
+          <input
+            className="input"
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            max={new Date().toISOString().split('T')[0]}
+          />
+        </div>
+        {existingRecord && (
+          <div className="sm:col-span-3 flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl">
+            <RefreshCw className="w-3.5 h-3.5" />
+            Updating existing record for this date
           </div>
-        ) : (
-          <>
-            {/* Section Tabs */}
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
-              {[
-                { key: 'labour', label: 'Labour', count: presentCount, icon: Users },
-                { key: 'material', label: 'Materials', count: materialEntries.length, icon: Package },
-                { key: 'other', label: 'Other Expenses', count: otherEntries.length, icon: Coins },
-              ].map(({ key, label, count, icon: Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveSection(key as any)}
-                  className={cn('tab-btn flex items-center gap-2', activeSection === key && 'active')}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                  {count > 0 && (
-                    <span className={cn('text-xs px-1.5 py-0.5 rounded-full font-semibold', activeSection === key ? 'bg-primary-100 text-primary-600' : 'bg-gray-200 text-gray-600')}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Labour Section */}
-            {activeSection === 'labour' && (
-              <div className="card">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-display font-semibold text-gray-900">Attendance & Labour</h3>
-                  <span className="text-sm text-gray-500">{presentCount} present</span>
-                </div>
-
-                {labourEntries.length === 0 ? (
-                  <p className="text-gray-400 text-sm text-center py-6">No labour added yet. Add labour from the Labour module.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {labourEntries.map((entry) => (
-                      <div
-                        key={entry.labourId}
-                        className={cn(
-                          'flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl border transition-all',
-                          entry.present ? 'border-primary-200 bg-primary-50/50' : 'border-gray-100 bg-gray-50/50'
-                        )}
-                      >
-                        <button
-                          onClick={() => toggleLabour(entry.labourId)}
-                          className={cn(
-                            'flex items-center gap-3 flex-1 text-left',
-                          )}
-                        >
-                          <div className={cn(
-                            'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all',
-                            entry.present ? 'bg-primary-500 border-primary-500' : 'border-gray-300'
-                          )}>
-                            {entry.present && <svg viewBox="0 0 10 8" className="w-3 h-3 fill-white"><path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                          </div>
-                          <div>
-                            <p className={cn('text-sm font-semibold', entry.present ? 'text-gray-900' : 'text-gray-500')}>{entry.name}</p>
-                            <p className="text-xs text-gray-400">{entry.designation} · {formatCurrency(entry.dailyWage)}/day</p>
-                          </div>
-                        </button>
-
-                        {entry.present && (
-                          <div className="flex items-center gap-2 sm:justify-end">
-                            <label className="text-xs text-gray-500 whitespace-nowrap">OT Hours:</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.5"
-                              value={entry.overtimeHours}
-                              onChange={(e) => setOvertime(entry.labourId, parseFloat(e.target.value) || 0)}
-                              className="input w-20 text-center py-1.5 text-sm"
-                            />
-                            <span className="text-xs text-primary-600 font-semibold whitespace-nowrap">
-                              = {formatCurrency(entry.dailyWage + entry.overtimeHours * entry.overtimeRate)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Material Section */}
-            {activeSection === 'material' && (
-              <div className="space-y-4">
-                {/* Add material */}
-                <div className="card">
-                  <h3 className="font-display font-semibold text-gray-900 mb-3">Add Materials</h3>
-                  <div className="space-y-3">
-                    {Object.entries(materialsByCategory).map(([category, mats]) => (
-                      <div key={category}>
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{category}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {mats.map((mat) => {
-                            const added = materialEntries.some(e => e.materialId === mat.id)
-                            return (
-                              <button
-                                key={mat.id}
-                                onClick={() => added ? removeMaterial(mat.id) : addMaterial(mat)}
-                                className={cn(
-                                  'px-3 py-1.5 rounded-lg text-xs font-medium border transition-all',
-                                  added ? 'bg-primary-100 text-primary-700 border-primary-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                                )}
-                              >
-                                {mat.name}
-                                {added && <span className="ml-1">✓</span>}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Material entries */}
-                {materialEntries.length > 0 && (
-                  <div className="card">
-                    <h3 className="font-display font-semibold text-gray-900 mb-3">Material Usage</h3>
-                    <div className="space-y-2">
-                      {materialEntries.map((entry) => (
-                        <div key={entry.materialId} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                          <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-800">{entry.name}</p>
-                            <p className="text-xs text-gray-400">{entry.unit}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-xs text-gray-500">Qty:</div>
-                            <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
-                              value={entry.quantity}
-                              onChange={(e) => updateMaterial(entry.materialId, 'quantity', parseFloat(e.target.value) || 0)}
-                              className="input w-20 text-center py-1.5 text-sm"
-                            />
-                            <div className="text-xs text-gray-500">Rate:</div>
-                            <input
-                              type="number"
-                              min="0.01"
-                              step="0.01"
-                              value={entry.rate}
-                              onChange={(e) => updateMaterial(entry.materialId, 'rate', parseFloat(e.target.value) || 0)}
-                              className="input w-24 text-center py-1.5 text-sm"
-                            />
-                            <span className="text-xs font-semibold text-green-600 w-20 text-right">{formatCurrency(entry.quantity * entry.rate)}</span>
-                            <button onClick={() => removeMaterial(entry.materialId)} className="p-1 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Other Expenses */}
-            {activeSection === 'other' && (
-              <div className="card">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-display font-semibold text-gray-900">Other Expenses</h3>
-                  <button onClick={addOther} className="btn-secondary text-xs py-1.5">
-                    <Plus className="w-3.5 h-3.5" />Add Expense
-                  </button>
-                </div>
-
-                {otherEntries.length === 0 ? (
-                  <p className="text-gray-400 text-sm text-center py-6">No other expenses. Click "Add Expense" to add transport, fuel, etc.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {otherEntries.map((entry, i) => (
-                      <div key={i} className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <div>
-                          <label className="label">Category</label>
-                          <select className="input" value={entry.category} onChange={e => updateOther(i, 'category', e.target.value)}>
-                            {OTHER_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="label">Amount (₹)</label>
-                          <input className="input" type="number" min="0" value={entry.amount} onChange={e => updateOther(i, 'amount', parseFloat(e.target.value) || 0)} />
-                        </div>
-                        <div className="relative">
-                          <label className="label">Description</label>
-                          <div className="flex gap-2">
-                            <input className="input flex-1" value={entry.description} onChange={e => updateOther(i, 'description', e.target.value)} placeholder="Optional" />
-                            <button onClick={() => removeOther(i)} className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors flex-shrink-0">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Notes */}
-            <div className="card">
-              <label className="label">Notes (Optional)</label>
-              <textarea
-                className="input resize-none"
-                rows={2}
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Any additional notes for this day…"
-              />
-            </div>
-          </>
         )}
       </div>
 
-      {/* Summary Panel */}
-      <div className="lg:w-72 xl:w-80">
-        <div className="lg:sticky lg:top-24 space-y-4">
-          <div className="card border-2 border-primary-100">
-            <h3 className="font-display font-bold text-gray-900 mb-4">Summary</h3>
+      {loading ? (
+        <div className="card flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+        </div>
+      ) : (
+        <>
+          {/* Section tabs */}
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit">
+            {sections.map(({ id, label, icon: Icon, badge }) => (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id)}
+                className={cn('tab-btn flex items-center gap-2', activeSection === id && 'active')}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+                <span className={cn(
+                  'text-[11px] px-1.5 py-0.5 rounded-full font-medium',
+                  activeSection === id
+                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                    : 'bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-400'
+                )}>{badge}</span>
+              </button>
+            ))}
+          </div>
 
-            <div className="space-y-3">
-              {[
-                { label: 'Labour', value: labourTotal, items: `${presentCount} workers`, color: 'text-primary-600' },
-                { label: 'Materials', value: materialTotal, items: `${materialEntries.length} items`, color: 'text-green-600' },
-                { label: 'Other', value: otherTotal, items: `${otherEntries.length} expenses`, color: 'text-amber-600' },
-              ].map(({ label, value, items, color }) => (
-                <div key={label} className="flex items-center justify-between py-2 border-b border-gray-50">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">{label}</p>
-                    <p className="text-xs text-gray-400">{items}</p>
-                  </div>
-                  <p className={`font-display font-semibold text-financial ${color}`}>{formatCurrency(value)}</p>
-                </div>
-              ))}
-
-              <div className="flex items-center justify-between pt-1">
-                <p className="font-display font-bold text-gray-900">Grand Total</p>
-                <p className="font-display font-bold text-gray-900 text-xl text-financial">{formatCurrency(grandTotal)}</p>
+          {/* ── Labour Section ──────────────────────────────────────── */}
+          {activeSection === 'labour' && (
+            <div className="card space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
+                  Mark Attendance &amp; Set Rates
+                </p>
+                <span className="text-xs text-gray-400 dark:text-slate-500">
+                  {presentCount} of {labourEntries.length} present
+                </span>
               </div>
-            </div>
 
-            <button
-              onClick={handleSave}
-              disabled={saving || !siteId || loading}
-              className="btn-primary w-full justify-center mt-4 py-3 text-base"
-            >
-              {saving ? (
-                <><Loader2 className="w-4 h-4 animate-spin" />Saving…</>
+              {labourEntries.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-slate-500">No labour records found. Add labour in the Labour section first.</p>
               ) : (
-                <><Save className="w-4 h-4" />{existingRecord ? 'Update Record' : 'Save Record'}</>
+                <div className="space-y-2">
+                  {labourEntries.map((entry, idx) => (
+                    <div
+                      key={entry.labourId}
+                      className={cn(
+                        'flex items-center gap-3 p-3 rounded-xl border transition-all duration-150',
+                        entry.present
+                          ? 'border-primary-200 dark:border-primary-700 bg-primary-50/50 dark:bg-primary-900/10'
+                          : 'border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/30'
+                      )}
+                    >
+                      {/* Checkbox */}
+                      <button
+                        onClick={() => togglePresent(idx)}
+                        className={cn(
+                          'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+                          entry.present
+                            ? 'bg-primary-500 border-primary-500 text-white'
+                            : 'border-gray-300 dark:border-slate-500'
+                        )}
+                      >
+                        {entry.present && <span className="text-white text-xs font-bold">✓</span>}
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          'text-sm font-medium',
+                          entry.present ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-slate-500'
+                        )}>{entry.name}</p>
+                        <p className="text-xs text-gray-400 dark:text-slate-500">{entry.designation}</p>
+                      </div>
+
+                      {/* Editable rate */}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-400 dark:text-slate-500">₹</span>
+                        <input
+                          type="number"
+                          className={cn(
+                            'w-24 px-2 py-1 rounded-lg border text-sm text-right transition-colors',
+                            entry.present
+                              ? 'border-primary-200 dark:border-primary-700 bg-white dark:bg-slate-700 text-gray-900 dark:text-white'
+                              : 'border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500'
+                          )}
+                          value={entry.rate}
+                          onChange={e => setRate(idx, parseFloat(e.target.value) || 0)}
+                          disabled={!entry.present}
+                          min={0}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
+
+              {presentCount > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-700">
+                  <span className="text-sm text-gray-500 dark:text-slate-400">Labour Total</span>
+                  <span className="font-display font-bold text-gray-900 dark:text-white">{formatCurrency(totals.labour)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Material Section ─────────────────────────────────────── */}
+          {activeSection === 'material' && (
+            <div className="space-y-4">
+              {/* Quick-add from catalogue */}
+              <div className="card">
+                <p className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-3">Add from Catalogue</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {materials.map(mat => (
+                    <button
+                      key={mat.id}
+                      onClick={() => addMaterial(mat)}
+                      disabled={!!materialEntries.find(e => e.materialId === mat.id)}
+                      className={cn(
+                        'p-2.5 rounded-xl border text-left text-xs transition-all',
+                        materialEntries.find(e => e.materialId === mat.id)
+                          ? 'border-primary-200 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 cursor-default'
+                          : 'border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 cursor-pointer'
+                      )}
+                    >
+                      <p className="font-semibold text-gray-800 dark:text-slate-200 truncate">{mat.name}</p>
+                      <p className="text-gray-400 dark:text-slate-500 mt-0.5">{mat.unit} · ₹{mat.defaultRate}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Added materials */}
+              {materialEntries.length > 0 && (
+                <div className="card space-y-3">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">Added Materials</p>
+                  {materialEntries.map((entry, idx) => (
+                    <div key={entry.materialId} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-slate-700/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-slate-200">{entry.name}</p>
+                        <p className="text-xs text-gray-400 dark:text-slate-500">{entry.unit}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="Qty"
+                          className="w-20 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
+                          value={entry.quantity}
+                          onChange={e => updateMaterial(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                          min={0}
+                        />
+                        <span className="text-gray-300 dark:text-slate-600 text-xs">×</span>
+                        <input
+                          type="number"
+                          placeholder="Rate"
+                          className="w-24 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
+                          value={entry.rate}
+                          onChange={e => updateMaterial(idx, 'rate', parseFloat(e.target.value) || 0)}
+                          min={0}
+                        />
+                        <span className="text-xs text-gray-500 dark:text-slate-400 w-20 text-right font-semibold">
+                          {formatCurrency(entry.quantity * entry.rate)}
+                        </span>
+                        <button onClick={() => removeMaterial(idx)} className="p-1 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 border-t border-gray-100 dark:border-slate-700">
+                    <span className="text-sm text-gray-500 dark:text-slate-400">Material Total</span>
+                    <span className="font-display font-bold text-gray-900 dark:text-white">{formatCurrency(totals.material)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Other Expenses ────────────────────────────────────────── */}
+          {activeSection === 'other' && (
+            <div className="card space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">Other Expenses</p>
+                <button onClick={addOther} className="btn-secondary text-xs py-1.5 px-3">
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </button>
+              </div>
+
+              {otherEntries.length === 0 ? (
+                <p className="text-sm text-gray-400 dark:text-slate-500 py-4 text-center">
+                  No other expenses. Click "Add" to add transport, fuel, etc.
+                </p>
+              ) : (
+                <>
+                  {otherEntries.map((entry, idx) => (
+                    <div key={idx} className="flex items-start gap-2 p-3 rounded-xl bg-gray-50 dark:bg-slate-700/50">
+                      <select
+                        className="input w-40 flex-shrink-0 py-2"
+                        value={entry.category}
+                        onChange={e => updateOther(idx, 'category', e.target.value)}
+                      >
+                        {OTHER_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                      </select>
+                      <input
+                        type="number"
+                        className="input w-28 py-2 text-right"
+                        placeholder="Amount"
+                        value={entry.amount || ''}
+                        onChange={e => updateOther(idx, 'amount', parseFloat(e.target.value) || 0)}
+                        min={0}
+                      />
+                      <input
+                        className="input flex-1 py-2"
+                        placeholder="Description (optional)"
+                        value={entry.description}
+                        onChange={e => updateOther(idx, 'description', e.target.value)}
+                      />
+                      <button onClick={() => removeOther(idx)} className="p-2 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 border-t border-gray-100 dark:border-slate-700">
+                    <span className="text-sm text-gray-500 dark:text-slate-400">Other Total</span>
+                    <span className="font-display font-bold text-gray-900 dark:text-white">{formatCurrency(totals.other)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Notes */}
+          <div className="card">
+            <label className="label">Notes (optional)</label>
+            <textarea
+              className="input resize-none"
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Any remarks or special notes for today..."
+            />
+          </div>
+
+          {/* ── Summary Preview ─────────────────────────────────────── */}
+          <div className="card border-primary-100 dark:border-primary-800">
+            <button
+              onClick={() => setShowSummary(!showSummary)}
+              className="w-full flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Eye className="w-4 h-4 text-primary-500" />
+                <span className="font-semibold text-gray-900 dark:text-white">Daily Summary</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-display font-bold text-primary-600 dark:text-primary-400 text-lg">
+                  {formatCurrency(totals.grand)}
+                </span>
+                <ChevronDown className={cn('w-4 h-4 text-gray-400 transition-transform', showSummary && 'rotate-180')} />
+              </div>
+            </button>
+
+            {showSummary && (
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700 space-y-2.5">
+                {[
+                  { label: `Labour (${presentCount} workers)`, value: totals.labour, color: 'text-primary-600 dark:text-primary-400' },
+                  { label: `Materials (${materialEntries.length} items)`, value: totals.material, color: 'text-emerald-600 dark:text-emerald-400' },
+                  { label: `Other Expenses (${otherEntries.length})`, value: totals.other, color: 'text-amber-600 dark:text-amber-400' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500 dark:text-slate-400">{label}</span>
+                    <span className={cn('font-semibold tabular-nums', color)}>{formatCurrency(value)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-slate-700 text-base font-bold">
+                  <span className="text-gray-900 dark:text-white">Grand Total</span>
+                  <span className="text-primary-600 dark:text-primary-400 font-display">{formatCurrency(totals.grand)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Submit */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleSubmit}
+              disabled={saving || totals.grand === 0}
+              className="btn-primary flex-1 justify-center py-3 text-base"
+            >
+              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {existingRecord ? 'Update Record' : 'Save Daily Record'}
             </button>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }

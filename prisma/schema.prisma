@@ -20,17 +20,37 @@ enum SiteStatus {
   CANCELLED
 }
 
+// ─── App-wide settings (DB-driven, single row) ─────────────────────────────
+model AppSettings {
+  id             String   @id @default(uuid())
+  companyName    String   @default("BK Constructions")
+  companyTagline String?  @default("Operations")
+  logoUrl        String?
+  currency       String   @default("INR")
+  address        String?
+  phone          String?
+  email          String?
+  gstNumber      String?
+  contactPerson  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model User {
-  id           String        @id @default(cuid())
-  name         String
-  email        String        @unique
-  password     String
-  role         Role          @default(SUPERVISOR)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  dailyRecords DailyRecord[]
+  id            String        @id @default(cuid())
+  name          String
+  email         String        @unique
+  password      String
+  role          Role          @default(SUPERVISOR)
+  theme         String        @default("light")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  dailyRecords  DailyRecord[]
   budgetEntries BudgetEntry[]
   assignedSites SiteUser[]
+  // Audit relations
+  voidedBudgets BudgetEntry[] @relation("BudgetVoidedBy")
+  editedBudgets BudgetEntry[] @relation("BudgetEditedBy")
 }
 
 model Site {
@@ -60,15 +80,27 @@ model SiteUser {
   @@unique([siteId, userId])
 }
 
+// ─── Budget Entry — soft delete, audit trail ───────────────────────────────
 model BudgetEntry {
-  id          String   @id @default(cuid())
-  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  site        Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId      String
   amount      Float
   note        String?
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  // Audit: creation
+  createdBy   User      @relation(fields: [createdById], references: [id])
   createdById String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  // Audit: edits
+  updatedAt   DateTime  @updatedAt
+  editedBy    User?     @relation("BudgetEditedBy", fields: [editedById], references: [id])
+  editedById  String?
+  // Audit: soft-delete / void
+  isVoided    Boolean   @default(false)
+  voidedAt    DateTime?
+  voidedBy    User?     @relation("BudgetVoidedBy", fields: [voidedById], references: [id])
+  voidedById  String?
+  voidReason  String?
 }
 
 model DailyRecord {
@@ -92,12 +124,12 @@ model DailyRecord {
   @@unique([siteId, date])
 }
 
+// ─── Labour — OT fields REMOVED ────────────────────────────────────────────
 model Labour {
   id            String        @id @default(cuid())
   name          String
   designation   String
   dailyWage     Float
-  overtimeRate  Float         @default(0)
   active        Boolean       @default(true)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -115,13 +147,14 @@ model Material {
   materialEntries MaterialEntry[]
 }
 
+// ─── Labour Entry — OT fields REMOVED ──────────────────────────────────────
 model LabourEntry {
   id            String      @id @default(cuid())
   dailyRecord   DailyRecord @relation(fields: [dailyRecordId], references: [id], onDelete: Cascade)
   dailyRecordId String
   labour        Labour      @relation(fields: [labourId], references: [id])
   labourId      String
-  overtimeHours Float       @default(0)
+  rate          Float       // editable rate (defaults to labour.dailyWage)
   cost          Float
   present       Boolean     @default(true)
   createdAt     DateTime    @default(now())

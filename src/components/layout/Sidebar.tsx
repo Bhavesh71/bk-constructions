@@ -17,6 +17,7 @@ import {
   UserCircle2,
   Shield,
   X,
+  History,
 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
 import { BRAND } from '@/lib/brand'
@@ -25,14 +26,15 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/sites', label: 'Sites', icon: MapPin },
   { href: '/daily-entry', label: 'Daily Entry', icon: ClipboardList },
+  { href: '/records', label: 'Record History', icon: History },
   { href: '/labour', label: 'Labour', icon: Users },
   { href: '/materials', label: 'Materials', icon: Package },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 const adminItems = [
   { href: '/users', label: 'Users', icon: UserCircle2 },
-  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 interface SidebarProps {
@@ -73,7 +75,6 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 alt={BRAND.name}
                 width={60}
                 height={60}
-                // className="rounded-lg object-contain"
                 priority
               />
             </div>

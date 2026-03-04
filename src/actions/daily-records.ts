@@ -11,10 +11,8 @@ export async function getDailyRecord(siteId: string, date: string) {
   const session = await getServerSession(authOptions)
   if (!session) throw new Error('Unauthorized')
 
-  const dateObj = new Date(date)
-
   const record = await prisma.dailyRecord.findUnique({
-    where: { siteId_date: { siteId, date: dateObj } },
+    where: { siteId_date: { siteId, date: new Date(date) } },
     include: {
       labourEntries: { include: { labour: true } },
       materialEntries: { include: { material: true } },
@@ -30,19 +28,64 @@ export async function getDailyRecords(siteId?: string, limit = 50) {
   const session = await getServerSession(authOptions)
   if (!session) throw new Error('Unauthorized')
 
-  const records = await prisma.dailyRecord.findMany({
-    where: siteId ? { siteId } : undefined,
-    include: {
+  const isAdmin = session.user.role === 'ADMIN'
+
+  return prisma.dailyRecord.findMany({
+    where: {
+      ...(siteId ? { siteId } : {}),
+      ...(!isAdmin ? { site: { assignedUsers: { some: { userId: session.user.id } } } } : {}),
+    },
+    select: {
+      id: true, date: true, totalLabour: true, totalMaterial: true,
+      totalOther: true, grandTotal: true, notes: true, siteId: true, createdAt: true,
       site: { select: { name: true, location: true } },
       createdBy: { select: { name: true } },
     },
     orderBy: { date: 'desc' },
     take: limit,
   })
-
-  return records
 }
 
+export async function getFullDailyRecords(filters: {
+  siteId?: string
+  dateFrom?: string
+  dateTo?: string
+  limit?: number
+}) {
+  const session = await getServerSession(authOptions)
+  if (!session) throw new Error('Unauthorized')
+
+  const isAdmin = session.user.role === 'ADMIN'
+  const where: any = {
+    ...(!isAdmin ? { site: { assignedUsers: { some: { userId: session.user.id } } } } : {}),
+  }
+
+  if (filters.siteId) where.siteId = filters.siteId
+  if (filters.dateFrom || filters.dateTo) {
+    where.date = {}
+    if (filters.dateFrom) where.date.gte = new Date(filters.dateFrom)
+    if (filters.dateTo) where.date.lte = new Date(filters.dateTo)
+  }
+
+  return prisma.dailyRecord.findMany({
+    where,
+    include: {
+      site: { select: { name: true, location: true } },
+      createdBy: { select: { name: true } },
+      labourEntries: {
+        include: { labour: { select: { name: true, designation: true } } },
+      },
+      materialEntries: {
+        include: { material: { select: { name: true, unit: true, category: true } } },
+      },
+      otherExpenses: true,
+    },
+    orderBy: { date: 'desc' },
+    take: filters.limit || 500,
+  })
+}
+
+// ─── Save / Update daily record — OT removed, rate is now stored per entry ─
 export async function saveDailyRecord(data: unknown): Promise<ActionResponse<{ id: string }>> {
   try {
     const session = await getServerSession(authOptions)
@@ -51,24 +94,18 @@ export async function saveDailyRecord(data: unknown): Promise<ActionResponse<{ i
     const parsed = dailyRecordSchema.parse(data)
     const dateObj = new Date(parsed.date)
 
-    // Get labour data for cost calculation
-    const labourIds = parsed.labourEntries.filter((e) => e.present).map((e) => e.labourId)
-    const labourData = await prisma.labour.findMany({ where: { id: { in: labourIds } } })
-    const labourMap = new Map(labourData.map((l) => [l.id, l]))
-
-    // Calculate totals
     let totalLabour = 0
     const labourEntriesData = parsed.labourEntries
       .filter((e) => e.present)
       .map((entry) => {
-        const labour = labourMap.get(entry.labourId)
-        if (!labour) throw new Error(`Labour not found: ${entry.labourId}`)
-        const cost = labour.dailyWage + entry.overtimeHours * labour.overtimeRate
+        // Use the rate sent from the client (which was pre-filled from Labour.dailyWage but can be edited)
+        const rate = (entry as any).rate ?? 0
+        const cost = rate
         totalLabour += cost
         return {
           labourId: entry.labourId,
-          present: entry.present,
-          overtimeHours: entry.overtimeHours,
+          present: true,
+          rate,
           cost,
         }
       })
@@ -77,12 +114,7 @@ export async function saveDailyRecord(data: unknown): Promise<ActionResponse<{ i
     const materialEntriesData = parsed.materialEntries.map((entry) => {
       const total = entry.quantity * entry.rate
       totalMaterial += total
-      return {
-        materialId: entry.materialId,
-        quantity: entry.quantity,
-        rate: entry.rate,
-        total,
-      }
+      return { materialId: entry.materialId, quantity: entry.quantity, rate: entry.rate, total }
     })
 
     let totalOther = 0
@@ -93,13 +125,9 @@ export async function saveDailyRecord(data: unknown): Promise<ActionResponse<{ i
 
     const grandTotal = totalLabour + totalMaterial + totalOther
 
-    // Use transaction to ensure atomicity
     const record = await prisma.$transaction(async (tx) => {
-      // Delete existing record if it exists (for editing)
-      await tx.dailyRecord.deleteMany({
-        where: { siteId: parsed.siteId, date: dateObj },
-      })
-
+      // Delete existing record for same site+date (upsert via delete+create)
+      await tx.dailyRecord.deleteMany({ where: { siteId: parsed.siteId, date: dateObj } })
       return tx.dailyRecord.create({
         data: {
           siteId: parsed.siteId,
@@ -120,6 +148,7 @@ export async function saveDailyRecord(data: unknown): Promise<ActionResponse<{ i
     revalidatePath('/daily-entry')
     revalidatePath(`/sites/${parsed.siteId}`)
     revalidatePath('/dashboard')
+    revalidatePath('/records')
     return { success: true, data: { id: record.id } }
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to save daily record' }
@@ -129,113 +158,108 @@ export async function saveDailyRecord(data: unknown): Promise<ActionResponse<{ i
 export async function deleteDailyRecord(id: string): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
-      return { success: false, error: 'Unauthorized' }
-    }
+    if (!session || session.user.role !== 'ADMIN') return { success: false, error: 'Unauthorized' }
 
     const record = await prisma.dailyRecord.delete({ where: { id } })
-
     revalidatePath('/daily-entry')
     revalidatePath(`/sites/${record.siteId}`)
     revalidatePath('/dashboard')
+    revalidatePath('/records')
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to delete record' }
   }
 }
 
+// ─── Dashboard — all queries parallelized ─────────────────────────────────
 export async function getDashboardData() {
   const session = await getServerSession(authOptions)
   if (!session) throw new Error('Unauthorized')
 
   const isAdmin = session.user.role === 'ADMIN'
+  const siteWhere = isAdmin ? {} : { assignedUsers: { some: { userId: session.user.id } } }
+  const recordWhere = isAdmin ? {} : { site: { assignedUsers: { some: { userId: session.user.id } } } }
 
-  const siteWhere = isAdmin
-    ? {}
-    : { assignedUsers: { some: { userId: session.user.id } } }
+  const today = new Date()
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+  const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1)
 
-  const [totalSites, activeSites, sites, monthlyRecords, recentRecords] = await Promise.all([
+  const [
+    totalSites,
+    activeSites,
+    budgetAggregate,
+    spentAggregate,
+    todayExpense,
+    monthlyExpense,
+    monthlyRecords,
+    recentRecords,
+    sitesForChart,
+  ] = await Promise.all([
     prisma.site.count({ where: siteWhere }),
     prisma.site.count({ where: { ...siteWhere, status: 'ACTIVE' } }),
-    prisma.site.findMany({
-      where: siteWhere,
-      include: {
-        budgetEntries: { select: { amount: true } },
-        dailyRecords: { select: { grandTotal: true, totalLabour: true, totalMaterial: true, totalOther: true, date: true } },
-      },
+    // Exclude voided budget entries from totals
+    prisma.budgetEntry.aggregate({
+      where: { site: siteWhere, isVoided: false },
+      _sum: { amount: true },
+    }),
+    prisma.dailyRecord.aggregate({ where: recordWhere, _sum: { grandTotal: true } }),
+    prisma.dailyRecord.aggregate({
+      where: { ...recordWhere, date: { gte: todayStart, lt: new Date(todayStart.getTime() + 86400000) } },
+      _sum: { grandTotal: true },
+    }),
+    prisma.dailyRecord.aggregate({
+      where: { ...recordWhere, date: { gte: monthStart } },
+      _sum: { grandTotal: true },
     }),
     prisma.dailyRecord.findMany({
-      where: {
-        date: { gte: new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1) },
-        ...(isAdmin ? {} : { site: { assignedUsers: { some: { userId: session.user.id } } } }),
-      },
-      select: { date: true, grandTotal: true, totalLabour: true, totalMaterial: true, totalOther: true },
+      where: { ...recordWhere, date: { gte: sixMonthsAgo } },
+      select: { date: true, totalLabour: true, totalMaterial: true, totalOther: true, grandTotal: true },
+      orderBy: { date: 'asc' },
     }),
     prisma.dailyRecord.findMany({
-      where: isAdmin ? {} : { site: { assignedUsers: { some: { userId: session.user.id } } } },
-      include: {
+      where: recordWhere,
+      select: {
+        id: true, date: true, totalLabour: true, totalMaterial: true, grandTotal: true,
         site: { select: { name: true } },
         createdBy: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 8,
     }),
+    prisma.site.findMany({
+      where: siteWhere,
+      select: {
+        id: true, name: true,
+        budgetEntries: { select: { amount: true }, where: { isVoided: false } },
+      },
+      take: 10,
+    }),
   ])
 
-  // Today's expense
-  const today = new Date()
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const todayExpense = await prisma.dailyRecord.aggregate({
-    where: {
-      date: { gte: todayStart, lt: new Date(todayStart.getTime() + 86400000) },
-      ...(isAdmin ? {} : { site: { assignedUsers: { some: { userId: session.user.id } } } }),
-    },
-    _sum: { grandTotal: true },
-  })
+  const siteIds = sitesForChart.map((s) => s.id)
+  const spentPerSite = siteIds.length > 0
+    ? await prisma.dailyRecord.groupBy({
+        by: ['siteId'],
+        where: { siteId: { in: siteIds } },
+        _sum: { grandTotal: true },
+      })
+    : []
+  const spentMap = new Map(spentPerSite.map((s) => [s.siteId, s._sum.grandTotal || 0]))
 
-  // Monthly expense (current month)
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-  const monthlyExpense = await prisma.dailyRecord.aggregate({
-    where: {
-      date: { gte: monthStart },
-      ...(isAdmin ? {} : { site: { assignedUsers: { some: { userId: session.user.id } } } }),
-    },
-    _sum: { grandTotal: true },
-  })
-
-  const totalBudget = sites.reduce(
-    (sum, s) => sum + s.budgetEntries.reduce((bs, b) => bs + b.amount, 0),
-    0
-  )
-  const totalSpent = sites.reduce(
-    (sum, s) => sum + s.dailyRecords.reduce((rs, r) => rs + r.grandTotal, 0),
-    0
-  )
-
-  // Monthly trends
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const trendMap = new Map<string, { labour: number; material: number; other: number; total: number }>()
-
   for (const r of monthlyRecords) {
     const d = new Date(r.date)
-    const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`
-    const existing = trendMap.get(key) || { labour: 0, material: 0, other: 0, total: 0 }
+    const key = `${monthNames[d.getMonth()]} ${String(d.getFullYear()).slice(2)}`
+    const ex = trendMap.get(key) || { labour: 0, material: 0, other: 0, total: 0 }
     trendMap.set(key, {
-      labour: existing.labour + r.totalLabour,
-      material: existing.material + r.totalMaterial,
-      other: existing.other + r.totalOther,
-      total: existing.total + r.grandTotal,
+      labour: ex.labour + r.totalLabour,
+      material: ex.material + r.totalMaterial,
+      other: ex.other + r.totalOther,
+      total: ex.total + r.grandTotal,
     })
   }
-
-  const monthlyTrend = Array.from(trendMap.entries()).map(([month, data]) => ({ month, ...data }))
-
-  // Site comparison
-  const siteComparison = sites.map((site) => ({
-    name: site.name.length > 15 ? site.name.substring(0, 15) + '…' : site.name,
-    budget: site.budgetEntries.reduce((sum, b) => sum + b.amount, 0),
-    spent: site.dailyRecords.reduce((sum, r) => sum + r.grandTotal, 0),
-  }))
 
   return {
     kpi: {
@@ -243,12 +267,16 @@ export async function getDashboardData() {
       activeSites,
       todayExpense: todayExpense._sum.grandTotal || 0,
       monthlyExpense: monthlyExpense._sum.grandTotal || 0,
-      totalBudget,
-      totalSpent,
-      remainingBudget: totalBudget - totalSpent,
+      totalBudget: budgetAggregate._sum.amount || 0,
+      totalSpent: spentAggregate._sum.grandTotal || 0,
+      remainingBudget: (budgetAggregate._sum.amount || 0) - (spentAggregate._sum.grandTotal || 0),
     },
-    monthlyTrend,
-    siteComparison,
+    monthlyTrend: Array.from(trendMap.entries()).map(([month, data]) => ({ month, ...data })),
+    siteComparison: sitesForChart.map((site) => ({
+      name: site.name.length > 14 ? site.name.substring(0, 14) + '…' : site.name,
+      budget: site.budgetEntries.reduce((sum, b) => sum + b.amount, 0),
+      spent: spentMap.get(site.id) || 0,
+    })),
     recentRecords,
   }
 }

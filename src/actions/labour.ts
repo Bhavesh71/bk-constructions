@@ -11,80 +11,64 @@ export async function getLabours() {
   const session = await getServerSession(authOptions)
   if (!session) throw new Error('Unauthorized')
 
-  return prisma.labour.findMany({
-    orderBy: [{ active: 'desc' }, { name: 'asc' }],
-  })
-}
+  const [labours, earnings] = await Promise.all([
+    prisma.labour.findMany({ orderBy: { name: 'asc' } }),
+    prisma.labourEntry.groupBy({
+      by: ['labourId'],
+      where: { present: true },
+      _sum: { cost: true },
+      _count: { id: true },
+    }),
+  ])
 
-export async function getLabourWithStats() {
-  const session = await getServerSession(authOptions)
-  if (!session) throw new Error('Unauthorized')
+  const earningsMap = new Map(earnings.map(e => [e.labourId, e]))
 
-  const labours = await prisma.labour.findMany({
-    include: {
-      labourEntries: {
-        include: {
-          dailyRecord: { select: { date: true, site: { select: { name: true } } } },
-        },
-      },
-    },
-    orderBy: [{ active: 'desc' }, { name: 'asc' }],
-  })
-
-  return labours.map((l) => ({
+  return labours.map(l => ({
     ...l,
-    totalEarnings: l.labourEntries.reduce((sum, e) => sum + e.cost, 0),
-    daysWorked: l.labourEntries.filter((e) => e.present).length,
-    recentEntries: l.labourEntries.slice(0, 5),
+    totalEarnings: earningsMap.get(l.id)?._sum.cost || 0,
+    daysWorked: earningsMap.get(l.id)?._count.id || 0,
   }))
 }
 
-export async function createLabour(data: unknown): Promise<ActionResponse<{ id: string }>> {
+export async function createLabour(data: unknown): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
-      return { success: false, error: 'Unauthorized' }
-    }
+    if (!session || session.user.role !== 'ADMIN') return { success: false, error: 'Unauthorized' }
 
     const parsed = labourSchema.parse(data)
-    const labour = await prisma.labour.create({ data: parsed })
-
+    await prisma.labour.create({ data: parsed })
     revalidatePath('/labour')
-    return { success: true, data: { id: labour.id } }
+    revalidatePath('/daily-entry')
+    return { success: true }
   } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to create labour' }
+    return { success: false, error: error.message }
   }
 }
 
 export async function updateLabour(id: string, data: unknown): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
-      return { success: false, error: 'Unauthorized' }
-    }
+    if (!session || session.user.role !== 'ADMIN') return { success: false, error: 'Unauthorized' }
 
     const parsed = labourSchema.parse(data)
     await prisma.labour.update({ where: { id }, data: parsed })
-
     revalidatePath('/labour')
+    revalidatePath('/daily-entry')
     return { success: true }
   } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to update labour' }
+    return { success: false, error: error.message }
   }
 }
 
 export async function deleteLabour(id: string): Promise<ActionResponse> {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'ADMIN') {
-      return { success: false, error: 'Unauthorized' }
-    }
+    if (!session || session.user.role !== 'ADMIN') return { success: false, error: 'Unauthorized' }
 
-    await prisma.labour.delete({ where: { id } })
-
+    await prisma.labour.update({ where: { id }, data: { active: false } })
     revalidatePath('/labour')
     return { success: true }
   } catch (error: any) {
-    return { success: false, error: error.message || 'Failed to delete labour' }
+    return { success: false, error: error.message }
   }
 }

@@ -1,4 +1,4 @@
-import { getLabourWithStats } from '@/actions/labour'
+import { getLabours } from '@/actions/labour'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
@@ -6,7 +6,7 @@ import { Users, CheckCircle, XCircle, TrendingUp } from 'lucide-react'
 import { LabourManagement } from '@/components/labour/LabourManagement'
 
 export default async function LabourPage() {
-  const [labours, session] = await Promise.all([getLabourWithStats(), getServerSession(authOptions)])
+  const [labours, session] = await Promise.all([getLabours(), getServerSession(authOptions)])
   const isAdmin = session?.user?.role === 'ADMIN'
 
   const activeCount = labours.filter(l => l.active).length
