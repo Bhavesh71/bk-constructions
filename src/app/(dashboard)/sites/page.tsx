@@ -13,7 +13,7 @@ export default async function SitesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Construction Sites</h2>
           <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">{sites.length} total site{sites.length !== 1 ? 's' : ''}</p>

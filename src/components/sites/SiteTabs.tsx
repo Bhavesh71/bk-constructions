@@ -29,12 +29,14 @@ export function SiteTabs({ site, isAdmin, allUsers = [] }: SiteTabsProps) {
 
   return (
     <div>
-      <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit mb-6">
-        {tabs.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={cn('tab-btn', activeTab === tab && 'active')}>
-            {tab}
-          </button>
-        ))}
+      <div className="overflow-x-auto -mx-1 px-1 pb-1">
+        <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit mb-6">
+          {tabs.map((tab) => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={cn('tab-btn whitespace-nowrap', activeTab === tab && 'active')}>
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       {activeTab === 'Overview' && <OverviewTab site={site} />}
@@ -59,7 +61,7 @@ function OverviewTab({ site }: { site: any }) {
           <p className="text-gray-700 dark:text-slate-300 text-sm">{site.description}</p>
         </div>
       )}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: 'Labour', value: totalLabour, color: 'bg-primary-500', pct: grand > 0 ? (totalLabour / grand) * 100 : 0 },
           { label: 'Material', value: totalMaterial, color: 'bg-green-500', pct: grand > 0 ? (totalMaterial / grand) * 100 : 0 },
@@ -111,22 +113,22 @@ function DailyRecordsTab({ site }: { site: any }) {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Labour</th>
-                <th>Material</th>
-                <th>Other</th>
+                <th className="hidden sm:table-cell">Labour</th>
+                <th className="hidden sm:table-cell">Material</th>
+                <th className="hidden md:table-cell">Other</th>
                 <th>Total</th>
-                <th>By</th>
+                <th className="hidden lg:table-cell">By</th>
               </tr>
             </thead>
             <tbody>
               {site.dailyRecords.map((r: any) => (
                 <tr key={r.id}>
                   <td className="font-medium">{formatDate(r.date)}</td>
-                  <td>{formatCurrency(r.totalLabour)}</td>
-                  <td>{formatCurrency(r.totalMaterial)}</td>
-                  <td>{formatCurrency(r.totalOther)}</td>
+                  <td className="hidden sm:table-cell">{formatCurrency(r.totalLabour)}</td>
+                  <td className="hidden sm:table-cell">{formatCurrency(r.totalMaterial)}</td>
+                  <td className="hidden md:table-cell">{formatCurrency(r.totalOther)}</td>
                   <td className="font-semibold">{formatCurrency(r.grandTotal)}</td>
-                  <td className="text-gray-400 dark:text-slate-500 text-xs">{r.createdBy.name}</td>
+                  <td className="hidden lg:table-cell text-gray-400 dark:text-slate-500 text-xs">{r.createdBy.name}</td>
                 </tr>
               ))}
             </tbody>

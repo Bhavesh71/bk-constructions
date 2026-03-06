@@ -19,12 +19,12 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Overview</h2>
           <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Monitor your construction operations in real-time</p>
         </div>
-        <Link href="/daily-entry" className="btn-primary">
+        <Link href="/daily-entry" className="btn-primary w-full sm:w-auto justify-center">
           <Activity className="w-4 h-4" />
           <span>Daily Entry</span>
         </Link>
@@ -90,9 +90,9 @@ export default async function DashboardPage() {
       <div className="card">
         <h3 className="font-display font-semibold text-gray-900 dark:text-white text-lg mb-4">Budget Overview</h3>
         <div className="space-y-2">
-          <div className="flex justify-between text-sm mb-2">
+          <div className="flex flex-wrap justify-between gap-1 text-sm mb-2">
             <span className="text-gray-500 dark:text-slate-400">Total Spent vs Budget</span>
-            <span className="font-semibold text-gray-800 dark:text-slate-200">
+            <span className="font-semibold text-gray-800 dark:text-slate-200 tabular-nums">
               {formatCurrency(kpi.totalSpent)} / {formatCurrency(kpi.totalBudget)}
             </span>
           </div>

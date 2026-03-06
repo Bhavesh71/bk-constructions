@@ -19,7 +19,7 @@ export default async function MaterialsPage() {
         <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Track and manage construction materials</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="kpi-card">
           <Package className="w-8 h-8 text-primary-500 mb-1" />
           <p className="kpi-value">{materials.length}</p>
@@ -30,7 +30,7 @@ export default async function MaterialsPage() {
           <p className="kpi-value">{categories}</p>
           <p className="kpi-label">Categories</p>
         </div>
-        <div className="kpi-card">
+        <div className="kpi-card col-span-2 sm:col-span-1">
           <TrendingUp className="w-8 h-8 text-amber-500 mb-1" />
           <p className="kpi-value">{formatCurrency(totalSpent)}</p>
           <p className="kpi-label">Total Spent</p>

@@ -296,23 +296,25 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
       ) : (
         <>
           {/* Section tabs */}
-          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit">
-            {sections.map(({ id, label, icon: Icon, badge }) => (
-              <button
-                key={id}
-                onClick={() => setActiveSection(id)}
-                className={cn('tab-btn flex items-center gap-2', activeSection === id && 'active')}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-                <span className={cn(
-                  'text-[11px] px-1.5 py-0.5 rounded-full font-medium',
-                  activeSection === id
-                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
-                    : 'bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-400'
-                )}>{badge}</span>
-              </button>
-            ))}
+          <div className="overflow-x-auto -mx-1 px-1 pb-1">
+            <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit">
+              {sections.map(({ id, label, icon: Icon, badge }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveSection(id)}
+                  className={cn('tab-btn flex items-center gap-1.5 whitespace-nowrap', activeSection === id && 'active')}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                  <span className={cn(
+                    'text-[11px] px-1.5 py-0.5 rounded-full font-medium',
+                    activeSection === id
+                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                      : 'bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-400'
+                  )}>{badge}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* ── Labour Section ──────────────────────────────────────── */}
@@ -363,12 +365,12 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
                       </div>
 
                       {/* Editable rate */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <span className="text-xs text-gray-400 dark:text-slate-500">₹</span>
                         <input
                           type="number"
                           className={cn(
-                            'w-24 px-2 py-1 rounded-lg border text-sm text-right transition-colors',
+                            'w-20 sm:w-24 px-2 py-1 rounded-lg border text-sm text-right transition-colors',
                             entry.present
                               ? 'border-primary-200 dark:border-primary-700 bg-white dark:bg-slate-700 text-gray-900 dark:text-white'
                               : 'border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500'
@@ -424,35 +426,37 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
                 <div className="card space-y-3">
                   <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">Added Materials</p>
                   {materialEntries.map((entry, idx) => (
-                    <div key={entry.materialId} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-slate-700/50">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 dark:text-slate-200">{entry.name}</p>
-                        <p className="text-xs text-gray-400 dark:text-slate-500">{entry.unit}</p>
+                    <div key={entry.materialId} className="p-3 rounded-xl bg-gray-50 dark:bg-slate-700/50 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-800 dark:text-slate-200">{entry.name}</p>
+                          <p className="text-xs text-gray-400 dark:text-slate-500">{entry.unit}</p>
+                        </div>
+                        <button onClick={() => removeMaterial(idx)} className="p-1 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded flex-shrink-0">
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
                           placeholder="Qty"
-                          className="w-20 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
+                          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
                           value={entry.quantity}
                           onChange={e => updateMaterial(idx, 'quantity', parseFloat(e.target.value) || 0)}
                           min={0}
                         />
-                        <span className="text-gray-300 dark:text-slate-600 text-xs">×</span>
+                        <span className="text-gray-300 dark:text-slate-600 text-xs flex-shrink-0">×</span>
                         <input
                           type="number"
                           placeholder="Rate"
-                          className="w-24 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
+                          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
                           value={entry.rate}
                           onChange={e => updateMaterial(idx, 'rate', parseFloat(e.target.value) || 0)}
                           min={0}
                         />
-                        <span className="text-xs text-gray-500 dark:text-slate-400 w-20 text-right font-semibold">
+                        <span className="text-xs text-gray-500 dark:text-slate-400 font-semibold tabular-nums flex-shrink-0">
                           {formatCurrency(entry.quantity * entry.rate)}
                         </span>
-                        <button onClick={() => removeMaterial(idx)} className="p-1 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded">
-                          <X className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
                   ))}
@@ -482,31 +486,33 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
               ) : (
                 <>
                   {otherEntries.map((entry, idx) => (
-                    <div key={idx} className="flex items-start gap-2 p-3 rounded-xl bg-gray-50 dark:bg-slate-700/50">
-                      <select
-                        className="input w-40 flex-shrink-0 py-2"
-                        value={entry.category}
-                        onChange={e => updateOther(idx, 'category', e.target.value)}
-                      >
-                        {OTHER_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                      </select>
+                    <div key={idx} className="rounded-xl bg-gray-50 dark:bg-slate-700/50 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <select
+                          className="input flex-1 py-2 text-sm"
+                          value={entry.category}
+                          onChange={e => updateOther(idx, 'category', e.target.value)}
+                        >
+                          {OTHER_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <input
+                          type="number"
+                          className="input w-28 py-2 text-right text-sm flex-shrink-0"
+                          placeholder="Amount"
+                          value={entry.amount || ''}
+                          onChange={e => updateOther(idx, 'amount', parseFloat(e.target.value) || 0)}
+                          min={0}
+                        />
+                        <button onClick={() => removeOther(idx)} className="p-2 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded flex-shrink-0">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                       <input
-                        type="number"
-                        className="input w-28 py-2 text-right"
-                        placeholder="Amount"
-                        value={entry.amount || ''}
-                        onChange={e => updateOther(idx, 'amount', parseFloat(e.target.value) || 0)}
-                        min={0}
-                      />
-                      <input
-                        className="input flex-1 py-2"
+                        className="input py-2 text-sm w-full"
                         placeholder="Description (optional)"
                         value={entry.description}
                         onChange={e => updateOther(idx, 'description', e.target.value)}
                       />
-                      <button onClick={() => removeOther(idx)} className="p-2 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded">
-                        <X className="w-4 h-4" />
-                      </button>
                     </div>
                   ))}
                   <div className="flex justify-between pt-2 border-t border-gray-100 dark:border-slate-700">

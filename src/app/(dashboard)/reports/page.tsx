@@ -8,8 +8,8 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display font-bold text-gray-900 text-2xl">Reports & Analytics</h2>
-        <p className="text-gray-500 text-sm mt-0.5">Filter, analyze and export your expense data</p>
+        <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Reports & Analytics</h2>
+        <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Filter, analyze and export your expense data</p>
       </div>
 
       <ReportsClient sites={sites as any} records={records as any} />

@@ -16,8 +16,8 @@ export default async function DailyEntryPage({ searchParams }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="font-display font-bold text-gray-900 text-2xl">Daily Expense Entry</h2>
-        <p className="text-gray-500 text-sm mt-0.5">Record labour, material and other expenses for a site</p>
+        <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Daily Expense Entry</h2>
+        <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Record labour, material and other expenses for a site</p>
       </div>
 
       <DailyEntryForm

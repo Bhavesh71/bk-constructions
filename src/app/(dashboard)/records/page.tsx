@@ -26,8 +26,8 @@ export default async function RecordsPage({ searchParams }: Props) {
           <History className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h2 className="font-display font-bold text-gray-900 text-2xl">Record History</h2>
-          <p className="text-gray-500 text-sm">Browse, filter and download all expense records</p>
+          <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Record History</h2>
+          <p className="text-gray-500 dark:text-slate-400 text-sm">Browse, filter and download all expense records</p>
         </div>
       </div>
 

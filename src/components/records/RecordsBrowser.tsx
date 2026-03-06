@@ -319,9 +319,9 @@ export function RecordsBrowser({ records, sites }: Props) {
                   <tr className="border-b border-gray-100 dark:border-slate-700 bg-gray-50/80 dark:bg-slate-800/80">
                     <th className="text-left px-5 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Date</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Site</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Labour</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Material</th>
-                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Other</th>
+                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider hidden sm:table-cell">Labour</th>
+                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider hidden sm:table-cell">Material</th>
+                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider hidden md:table-cell">Other</th>
                     <th className="text-right px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Total</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider hidden md:table-cell">By</th>
                     <th className="px-4 py-3 w-8" />
@@ -358,17 +358,17 @@ export function RecordsBrowser({ records, sites }: Props) {
                             <p className="text-xs text-gray-400 dark:text-slate-500">{record.site.location}</p>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-right">
+                        <td className="px-4 py-3.5 text-right hidden sm:table-cell">
                           <span className="text-sm font-medium text-blue-600 dark:text-blue-400 tabular-nums">
                             {formatCurrency(record.totalLabour)}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-right">
+                        <td className="px-4 py-3.5 text-right hidden sm:table-cell">
                           <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 tabular-nums">
                             {formatCurrency(record.totalMaterial)}
                           </span>
                         </td>
-                        <td className="px-4 py-3.5 text-right">
+                        <td className="px-4 py-3.5 text-right hidden md:table-cell">
                           <span className="text-sm font-medium text-amber-600 dark:text-amber-400 tabular-nums">
                             {formatCurrency(record.totalOther)}
                           </span>
@@ -537,13 +537,13 @@ export function RecordsBrowser({ records, sites }: Props) {
                         Totals — {filtered.length} records
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5 text-right hidden sm:table-cell">
                       <span className="text-sm font-bold text-blue-600 dark:text-blue-400 tabular-nums">{formatCurrency(totals.labour)}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5 text-right hidden sm:table-cell">
                       <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatCurrency(totals.material)}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-4 py-3.5 text-right hidden md:table-cell">
                       <span className="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">{formatCurrency(totals.other)}</span>
                     </td>
                     <td className="px-4 py-3.5 text-right">

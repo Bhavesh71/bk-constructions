@@ -30,25 +30,25 @@ export default async function SiteDetailPage({ params }: Props) {
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start gap-4">
-          <Link href="/sites" className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors mt-1">
+        <div className="flex items-start gap-3">
+          <Link href="/sites" className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition-colors mt-1 flex-shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Link>
-          <div className="flex-1">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="font-display font-bold text-gray-900 text-2xl">{site.name}</h2>
-              <span className={`badge ${status.badge}`}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-wrap">
+              <h2 className="font-display font-bold text-gray-900 dark:text-white text-xl sm:text-2xl">{site.name}</h2>
+              <span className={`badge ${status.badge} flex-shrink-0`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                 {status.label}
               </span>
             </div>
-            <div className="flex items-center gap-4 mt-1.5 text-sm text-gray-400 flex-wrap">
-              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{site.location}</span>
-              {site.startDate && <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />Started {formatDate(site.startDate)}</span>}
+            <div className="flex items-center gap-3 mt-1.5 text-sm text-gray-400 flex-wrap">
+              <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 flex-shrink-0" />{site.location}</span>
+              {site.startDate && <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 flex-shrink-0" />Started {formatDate(site.startDate)}</span>}
             </div>
           </div>
-          <Link href={`/daily-entry?siteId=${site.id}`} className="btn-primary">
-            <Plus className="w-4 h-4" />Daily Entry
+          <Link href={`/daily-entry?siteId=${site.id}`} className="btn-primary flex-shrink-0 text-sm">
+            <Plus className="w-4 h-4" /><span className="hidden sm:inline">Daily Entry</span><span className="sm:hidden">Add</span>
           </Link>
         </div>
 

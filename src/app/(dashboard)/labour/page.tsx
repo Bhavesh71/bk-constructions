@@ -22,7 +22,7 @@ export default async function LabourPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="kpi-card">
           <Users className="w-8 h-8 text-primary-500 mb-1" />
           <p className="kpi-value">{labours.length}</p>
@@ -33,7 +33,7 @@ export default async function LabourPage() {
           <p className="kpi-value">{activeCount}</p>
           <p className="kpi-label">Active</p>
         </div>
-        <div className="kpi-card">
+        <div className="kpi-card col-span-2 sm:col-span-1">
           <TrendingUp className="w-8 h-8 text-amber-500 mb-1" />
           <p className="kpi-value">{formatCurrency(totalEarnings)}</p>
           <p className="kpi-label">Total Paid</p>

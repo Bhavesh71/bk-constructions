@@ -114,7 +114,7 @@ export function AdminSettingsClient({ user, stats, appSettings }: AdminSettingsP
           </div>
           <h3 className="font-display font-semibold text-gray-900 dark:text-white">Business Overview</h3>
         </div>
-        <div className="grid grid-cols-3 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {[
             { label: 'Total Sites', value: String(stats.totalSites) },
             { label: 'Active Sites', value: String(stats.activeSites) },

@@ -92,19 +92,21 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-slate-900">
+      <div className="flex-1 flex items-start lg:items-center justify-center p-6 sm:p-8 bg-gray-50 dark:bg-slate-900 overflow-y-auto">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-8">
+          {/* Mobile header: big centered logo + brand name */}
+          <div className="lg:hidden flex flex-col items-center text-center mb-8 gap-4">
             <Image
               src={BRAND.logo}
               alt={BRAND.name}
-              width={40}
-              height={40}
-              className="rounded-xl object-contain"
+              width={120}
+              height={120}
+              className="object-contain"
               priority
             />
-            <span className="font-display font-bold text-gray-900 dark:text-white text-xl">{BRAND.name}</span>
+            <span className="font-display font-bold text-gray-900 dark:text-white text-2xl leading-tight">
+              {BRAND.name}
+            </span>
           </div>
 
           <div className="animate-slide-up">
