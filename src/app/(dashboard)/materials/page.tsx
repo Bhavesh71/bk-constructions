@@ -15,8 +15,8 @@ export default async function MaterialsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display font-bold text-gray-900 text-2xl">Materials</h2>
-        <p className="text-gray-500 text-sm mt-0.5">Track and manage construction materials</p>
+        <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Materials</h2>
+        <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Track and manage construction materials</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -32,7 +32,7 @@ export default async function MaterialsPage() {
         </div>
         <div className="kpi-card">
           <TrendingUp className="w-8 h-8 text-amber-500 mb-1" />
-          <p className="kpi-value text-lg">{formatCurrency(totalSpent)}</p>
+          <p className="kpi-value">{formatCurrency(totalSpent)}</p>
           <p className="kpi-label">Total Spent</p>
         </div>
       </div>

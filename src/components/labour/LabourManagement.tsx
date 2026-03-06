@@ -169,8 +169,8 @@ export function LabourManagement({ labours, isAdmin }: { labours: Labour[]; isAd
                     </td>
                     <td>
                       {l.active
-                        ? <span className="badge bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"><CheckCircle className="w-3 h-3" />Active</span>
-                        : <span className="badge bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400"><XCircle className="w-3 h-3" />Inactive</span>
+                        ? <span className="badge badge-green"><CheckCircle className="w-3 h-3" />Active</span>
+                        : <span className="badge badge-gray"><XCircle className="w-3 h-3" />Inactive</span>
                       }
                     </td>
                     {isAdmin && (

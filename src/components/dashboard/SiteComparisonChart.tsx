@@ -1,6 +1,7 @@
 'use client'
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { useTheme } from '@/lib/theme'
 
 interface SiteComparisonChartProps {
   data: Array<{ name: string; budget: number; spent: number }>
@@ -14,21 +15,27 @@ const formatInr = (value: number) => {
 }
 
 export function SiteComparisonChart({ data }: SiteComparisonChartProps) {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+
   if (!data || data.length === 0) {
     return (
-      <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
+      <div className="h-48 flex items-center justify-center text-gray-400 dark:text-slate-500 text-sm">
         No site data available
       </div>
     )
   }
 
+  const axisColor = isDark ? '#6b7fa0' : '#9CA3AF'
+  const budgetBarColor = isDark ? '#818cf8' : '#c7d2fe'
+
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 5, right: 5, bottom: 5, left: 5 }} barGap={4}>
-        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 11, fill: axisColor }} axisLine={false} tickLine={false} />
         <YAxis
           tickFormatter={formatInr}
-          tick={{ fontSize: 11, fill: '#9CA3AF' }}
+          tick={{ fontSize: 11, fill: axisColor }}
           axisLine={false}
           tickLine={false}
           width={50}
@@ -46,7 +53,7 @@ export function SiteComparisonChart({ data }: SiteComparisonChartProps) {
           labelStyle={{ color: '#fff', fontWeight: 600 }}
         />
         <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-        <Bar dataKey="budget" name="Budget" fill="#E0E7FF" radius={[6, 6, 0, 0]} />
+        <Bar dataKey="budget" name="Budget" fill={budgetBarColor} radius={[6, 6, 0, 0]} />
         <Bar dataKey="spent" name="Spent" fill="#4F46E5" radius={[6, 6, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>

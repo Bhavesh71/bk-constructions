@@ -8,14 +8,14 @@ import { BRAND } from '@/lib/brand'
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-syne',
+  variable: '--font-inter',
   weight: ['400', '500', '600', '700', '800'],
 })
 
 const dmSans = DM_Sans({
   subsets: ['latin'],
   variable: '--font-dm-sans',
-  weight: ['300', '400', '500', '600'],
+  weight: ['300', '400', '500', '600', '700'],
 })
 
 export const metadata: Metadata = {

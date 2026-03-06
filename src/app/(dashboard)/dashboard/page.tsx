@@ -21,8 +21,8 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display font-bold text-gray-900 text-2xl">Overview</h2>
-          <p className="text-gray-500 text-sm mt-0.5">Monitor your construction operations in real-time</p>
+          <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Overview</h2>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Monitor your construction operations in real-time</p>
         </div>
         <Link href="/daily-entry" className="btn-primary">
           <Activity className="w-4 h-4" />
@@ -77,22 +77,22 @@ export default async function DashboardPage() {
       {/* Charts */}
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="card">
-          <h3 className="font-display font-semibold text-gray-900 text-lg mb-4">Monthly Expense Trend</h3>
+          <h3 className="font-display font-semibold text-gray-900 dark:text-white text-lg mb-4">Monthly Expense Trend</h3>
           <ExpenseChart data={monthlyTrend} />
         </div>
         <div className="card">
-          <h3 className="font-display font-semibold text-gray-900 text-lg mb-4">Site Budget vs Spent</h3>
+          <h3 className="font-display font-semibold text-gray-900 dark:text-white text-lg mb-4">Site Budget vs Spent</h3>
           <SiteComparisonChart data={siteComparison} />
         </div>
       </div>
 
       {/* Budget Overview */}
       <div className="card">
-        <h3 className="font-display font-semibold text-gray-900 text-lg mb-4">Budget Overview</h3>
+        <h3 className="font-display font-semibold text-gray-900 dark:text-white text-lg mb-4">Budget Overview</h3>
         <div className="space-y-2">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-500">Total Spent vs Budget</span>
-            <span className="font-semibold text-gray-800">
+            <span className="text-gray-500 dark:text-slate-400">Total Spent vs Budget</span>
+            <span className="font-semibold text-gray-800 dark:text-slate-200">
               {formatCurrency(kpi.totalSpent)} / {formatCurrency(kpi.totalBudget)}
             </span>
           </div>
@@ -102,7 +102,7 @@ export default async function DashboardPage() {
               style={{ width: `${Math.min(100, budgetPct)}%` }}
             />
           </div>
-          <div className="flex justify-between text-xs text-gray-400">
+          <div className="flex justify-between text-xs text-gray-400 dark:text-slate-500">
             <span>{budgetPct.toFixed(1)}% used</span>
             <span>{formatCurrency(Math.max(0, kpi.remainingBudget))} remaining</span>
           </div>
@@ -112,7 +112,7 @@ export default async function DashboardPage() {
       {/* Recent Activity */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-semibold text-gray-900 text-lg">Recent Activity</h3>
+          <h3 className="font-display font-semibold text-gray-900 dark:text-white text-lg">Recent Activity</h3>
           <Link href="/daily-entry" className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
             View All <ArrowRight className="w-3.5 h-3.5" />
           </Link>
@@ -132,7 +132,7 @@ export default async function DashboardPage() {
             <tbody>
               {recentRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center text-gray-400 py-8">No records yet. Start by adding a daily entry.</td>
+                  <td colSpan={6} className="text-center text-gray-400 dark:text-slate-500 py-8">No records yet. Start by adding a daily entry.</td>
                 </tr>
               ) : (
                 recentRecords.map((r) => (
@@ -140,14 +140,14 @@ export default async function DashboardPage() {
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
-                        <span className="font-medium text-gray-800">{r.site.name}</span>
+                        <span className="font-medium text-gray-800 dark:text-slate-200">{r.site.name}</span>
                       </div>
                     </td>
-                    <td className="text-gray-500">{formatDate(r.date)}</td>
+                    <td className="text-gray-500 dark:text-slate-400">{formatDate(r.date)}</td>
                     <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalLabour)}</td>
                     <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalMaterial)}</td>
-                    <td className="font-bold text-financial text-gray-900">{formatCurrency(r.grandTotal)}</td>
-                    <td className="hidden sm:table-cell text-gray-400">{r.createdBy.name.split(' ')[0]}</td>
+                    <td className="font-bold text-financial text-gray-900 dark:text-white">{formatCurrency(r.grandTotal)}</td>
+                    <td className="hidden sm:table-cell text-gray-400 dark:text-slate-500">{r.createdBy.name.split(' ')[0]}</td>
                   </tr>
                 ))
               )}

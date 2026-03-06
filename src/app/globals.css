@@ -78,9 +78,9 @@
 
 
 /* ═══════════════════════════════════════════════════════════════
-   FONTS
+   FONTS — loaded via next/font/google in layout.tsx
+   (DM Sans → --font-dm-sans,  Inter → --font-inter)
 ═══════════════════════════════════════════════════════════════ */
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
 
 
 /* ═══════════════════════════════════════════════════════════════
@@ -977,7 +977,16 @@
     overflow: hidden;
     background-color: var(--surface-3);
   }
+  /* progress-bar is now the OUTER track (container) */
   .progress-bar {
+    height: 6px;
+    border-radius: 9999px;
+    overflow: hidden;
+    background-color: var(--surface-3);
+    width: 100%;
+  }
+  /* progress-fill is the INNER colored bar */
+  .progress-fill {
     height: 100%;
     border-radius: 9999px;
     transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
@@ -986,6 +995,14 @@
   .progress-bar-emerald { background: linear-gradient(90deg, #10b981 0%, #34d399 100%); }
   .progress-bar-amber   { background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%); }
   .progress-bar-red     { background: linear-gradient(90deg, #ef4444 0%, #f87171 100%); }
+
+  /* ── Financial/numeric text ───────────────────────────────── */
+  .text-financial {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
 
 
   /* ══════════════════════════════════════════════

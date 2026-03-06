@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
+import { useTheme } from '@/lib/theme'
 
 interface ExpenseChartProps {
   data: Array<{ month: string; labour: number; material: number; other: number; total: number }>
@@ -21,9 +22,13 @@ const formatInr = (value: number) => {
 }
 
 export function ExpenseChart({ data }: ExpenseChartProps) {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const axisColor = isDark ? '#6b7fa0' : '#9CA3AF'
+
   if (!data || data.length === 0) {
     return (
-      <div className="h-48 flex items-center justify-center text-gray-400 text-sm">
+      <div className="h-48 flex items-center justify-center text-gray-400 dark:text-slate-500 text-sm">
         No data available for chart
       </div>
     )
@@ -48,13 +53,13 @@ export function ExpenseChart({ data }: ExpenseChartProps) {
         </defs>
         <XAxis
           dataKey="month"
-          tick={{ fontSize: 11, fill: '#9CA3AF' }}
+          tick={{ fontSize: 11, fill: axisColor }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
           tickFormatter={formatInr}
-          tick={{ fontSize: 11, fill: '#9CA3AF' }}
+          tick={{ fontSize: 11, fill: axisColor }}
           axisLine={false}
           tickLine={false}
           width={45}

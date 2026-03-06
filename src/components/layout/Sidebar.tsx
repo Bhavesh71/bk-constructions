@@ -102,7 +102,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               onClick={onClose}
               className={cn('sidebar-item', isActive(href) && 'active')}
             >
-              <Icon className="w-4.5 h-4.5 flex-shrink-0" strokeWidth={isActive(href) ? 2.5 : 2} />
+              <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={isActive(href) ? 2.5 : 2} />
               <span className="flex-1">{label}</span>
               {isActive(href) && <ChevronRight className="w-3.5 h-3.5 text-primary-400" />}
             </Link>
@@ -118,7 +118,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   onClick={onClose}
                   className={cn('sidebar-item', isActive(href) && 'active')}
                 >
-                  <Icon className="w-4.5 h-4.5 flex-shrink-0" />
+                  <Icon className="w-[18px] h-[18px] flex-shrink-0" />
                   <span className="flex-1">{label}</span>
                   {isActive(href) && <ChevronRight className="w-3.5 h-3.5 text-primary-400" />}
                 </Link>

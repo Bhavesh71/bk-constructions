@@ -3,8 +3,9 @@
 import { useState, useMemo } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts'
-import { Download, Filter } from 'lucide-react'
+import { Download, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { cn } from '@/lib/utils'
 
 interface Site { id: string; name: string }
 interface Record {
@@ -13,6 +14,7 @@ interface Record {
 }
 
 const COLORS = ['#4F46E5', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6']
+const PAGE_SIZE = 50
 
 const formatInr = (v: number) => {
   if (v >= 100000) return `₹${(v / 100000).toFixed(1)}L`
@@ -24,14 +26,17 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
   const [siteFilter, setSiteFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
+    setPage(1)
     return records.filter((r) => {
       if (siteFilter && r.siteId !== siteFilter) return false
       if (dateFrom && new Date(r.date) < new Date(dateFrom)) return false
       if (dateTo && new Date(r.date) > new Date(dateTo)) return false
       return true
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [records, siteFilter, dateFrom, dateTo])
 
   const totals = useMemo(() => ({
@@ -63,6 +68,9 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
     return Array.from(map.values())
   }, [filtered])
 
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   function exportCSV() {
     const headers = ['Date', 'Site', 'Labour', 'Material', 'Other', 'Total', 'Recorded By']
     const rows = filtered.map(r => [
@@ -90,8 +98,8 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
       {/* Filters */}
       <div className="card">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-4 h-4 text-gray-400" />
-          <h3 className="font-semibold text-gray-900">Filters</h3>
+          <Filter className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+          <h3 className="font-semibold text-gray-900 dark:text-white">Filters</h3>
         </div>
         <div className="grid sm:grid-cols-3 gap-4">
           <div>
@@ -111,7 +119,7 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
           </div>
         </div>
         <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-gray-500">{filtered.length} records found</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">{filtered.length} records found</p>
           <button onClick={exportCSV} className="btn-secondary text-xs py-1.5">
             <Download className="w-3.5 h-3.5" />Export CSV
           </button>
@@ -121,13 +129,13 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Labour', value: totals.labour, color: 'text-primary-600' },
-          { label: 'Material', value: totals.material, color: 'text-green-600' },
-          { label: 'Other', value: totals.other, color: 'text-amber-600' },
-          { label: 'Grand Total', value: totals.grand, color: 'text-gray-900' },
+          { label: 'Labour', value: totals.labour, color: 'text-primary-600 dark:text-primary-400' },
+          { label: 'Material', value: totals.material, color: 'text-green-600 dark:text-green-400' },
+          { label: 'Other', value: totals.other, color: 'text-amber-600 dark:text-amber-400' },
+          { label: 'Grand Total', value: totals.grand, color: 'text-gray-900 dark:text-white' },
         ].map(item => (
           <div key={item.label} className="card py-4">
-            <p className="text-xs text-gray-400 mb-1">{item.label}</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mb-1">{item.label}</p>
             <p className={`font-display font-bold text-xl text-financial ${item.color}`}>{formatCurrency(item.value)}</p>
           </div>
         ))}
@@ -137,7 +145,7 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
       {filtered.length > 0 && (
         <div className="grid lg:grid-cols-2 gap-6">
           <div className="card">
-            <h4 className="font-display font-semibold text-gray-900 mb-4">Expense Breakdown</h4>
+            <h4 className="font-display font-semibold text-gray-900 dark:text-white mb-4">Expense Breakdown</h4>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
@@ -150,7 +158,7 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
 
           {siteBreakdown.length > 1 && (
             <div className="card">
-              <h4 className="font-display font-semibold text-gray-900 mb-4">By Site</h4>
+              <h4 className="font-display font-semibold text-gray-900 dark:text-white mb-4">By Site</h4>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={siteBreakdown} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
@@ -169,9 +177,9 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
 
       {/* Records Table */}
       <div className="card p-0 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-          <h4 className="font-semibold text-gray-900">Expense Records</h4>
-          <span className="text-sm text-gray-400">{filtered.length} records</span>
+        <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
+          <h4 className="font-semibold text-gray-900 dark:text-white">Expense Records</h4>
+          <span className="text-sm text-gray-400 dark:text-slate-500">{filtered.length} records</span>
         </div>
         <div className="table-container rounded-none border-0">
           <table className="table">
@@ -187,22 +195,68 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={6} className="text-center text-gray-400 py-8">No records match the current filters</td></tr>
+                <tr><td colSpan={6} className="text-center text-gray-400 dark:text-slate-500 py-8">No records match the current filters</td></tr>
               ) : (
-                filtered.slice(0, 100).map((r) => (
+                paginated.map((r) => (
                   <tr key={r.id}>
-                    <td className="text-gray-500 text-sm">{formatDate(r.date)}</td>
-                    <td className="font-medium text-gray-800">{r.site.name}</td>
+                    <td className="text-gray-500 dark:text-slate-400 text-sm">{formatDate(r.date)}</td>
+                    <td className="font-medium text-gray-800 dark:text-slate-200">{r.site.name}</td>
                     <td className="hidden sm:table-cell text-financial">{formatCurrency(r.totalLabour)}</td>
                     <td className="hidden sm:table-cell text-financial">{formatCurrency(r.totalMaterial)}</td>
                     <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalOther)}</td>
-                    <td className="font-bold text-financial text-gray-900">{formatCurrency(r.grandTotal)}</td>
+                    <td className="font-bold text-financial text-gray-900 dark:text-white">{formatCurrency(r.grandTotal)}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 dark:border-slate-700">
+            <p className="text-xs text-gray-400 dark:text-slate-500">
+              Showing <span className="font-semibold text-gray-600 dark:text-slate-300">{((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}</span> of <span className="font-semibold text-gray-600 dark:text-slate-300">{filtered.length}</span>
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p = i + 1
+                if (totalPages > 5) {
+                  if (page > 3) p = page - 2 + i
+                  if (page > totalPages - 2) p = totalPages - 4 + i
+                }
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={cn(
+                      'w-8 h-8 rounded-lg text-xs font-semibold transition-colors',
+                      p === page
+                        ? 'bg-indigo-500 text-white shadow-sm'
+                        : 'text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700'
+                    )}
+                  >
+                    {p}
+                  </button>
+                )
+              })}
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

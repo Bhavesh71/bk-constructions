@@ -80,12 +80,22 @@ function OverviewTab({ site }: { site: any }) {
 }
 
 function DailyRecordsTab({ site }: { site: any }) {
+  const totalCount = (site._count?.dailyRecords ?? site.dailyRecords.length)
+  const showingAll = site.dailyRecords.length >= totalCount
   return (
     <div className="card p-0 overflow-hidden">
       <div className="p-4 border-b border-gray-100 dark:border-slate-700 flex items-center justify-between">
         <h4 className="font-semibold text-gray-900 dark:text-white">
           Daily Records
-          <span className="ml-2 text-xs font-normal text-gray-400 dark:text-slate-500">(last 30)</span>
+          <span className="ml-2 text-xs font-normal text-gray-400 dark:text-slate-500">
+            {showingAll
+              ? `(${site.dailyRecords.length} total)`
+              : `(showing last 30 of ${totalCount} — `}
+            {!showingAll && (
+              <Link href="/records" className="text-primary-500 hover:text-primary-600 underline">view all</Link>
+            )}
+            {!showingAll && ')'}
+          </span>
         </h4>
         <Link href="/daily-entry" className="btn-primary text-xs py-1.5 px-3">
           <Plus className="w-3.5 h-3.5" /> Add Entry

@@ -70,7 +70,7 @@ export function SupervisorSettingsClient({ user, assignedSites, totalRecordsCrea
       <div className="card">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 gradient-emerald rounded-xl flex items-center justify-center">
-            <MapPin className="w-4.5 h-4.5 text-white" />
+            <MapPin className="w-[18px] h-[18px] text-white" />
           </div>
           <h3 className="font-display font-semibold text-gray-900 dark:text-white">Assigned Sites</h3>
         </div>
@@ -109,7 +109,7 @@ export function SupervisorSettingsClient({ user, assignedSites, totalRecordsCrea
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-gray-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
-              {theme === 'dark' ? <Moon className="w-4.5 h-4.5 text-primary-400" /> : <Sun className="w-4.5 h-4.5 text-amber-500" />}
+              {theme === 'dark' ? <Moon className="w-[18px] h-[18px] text-primary-400" /> : <Sun className="w-[18px] h-[18px] text-amber-500" />}
             </div>
             <div>
               <h3 className="font-display font-semibold text-gray-900 dark:text-white">Appearance</h3>
@@ -135,7 +135,7 @@ export function SupervisorSettingsClient({ user, assignedSites, totalRecordsCrea
       <div className="card">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 bg-gray-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
-            <Lock className="w-4.5 h-4.5 text-gray-500 dark:text-slate-400" />
+            <Lock className="w-[18px] h-[18px] text-gray-500 dark:text-slate-400" />
           </div>
           <h3 className="font-display font-semibold text-gray-900 dark:text-white">Change Password</h3>
         </div>

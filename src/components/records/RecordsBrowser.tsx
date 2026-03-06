@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   ChevronDown, Search, Download,
@@ -329,7 +329,7 @@ export function RecordsBrowser({ records, sites }: Props) {
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-slate-700/60">
                   {paginated.map((record) => (
-                    <>
+                    <Fragment key={record.id}>
                       {/* Main Row */}
                       <tr
                         key={record.id}
@@ -525,7 +525,7 @@ export function RecordsBrowser({ records, sites }: Props) {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
 

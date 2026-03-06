@@ -15,8 +15,8 @@ export default async function SitesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display font-bold text-gray-900 text-2xl">Construction Sites</h2>
-          <p className="text-gray-500 text-sm mt-0.5">{sites.length} total site{sites.length !== 1 ? 's' : ''}</p>
+          <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Construction Sites</h2>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">{sites.length} total site{sites.length !== 1 ? 's' : ''}</p>
         </div>
         {isAdmin && <CreateSiteModal />}
       </div>
@@ -39,7 +39,7 @@ export default async function SitesPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0">
                     <Link href={`/sites/${site.id}`}>
-                      <h3 className="font-display font-semibold text-gray-900 text-base hover:text-primary-600 transition-colors cursor-pointer truncate">
+                      <h3 className="font-display font-semibold text-gray-900 dark:text-white text-base hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer truncate">
                         {site.name}
                       </h3>
                     </Link>
@@ -69,13 +69,13 @@ export default async function SitesPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-gray-50 rounded-xl p-3">
-                      <p className="text-xs text-gray-400 mb-0.5">Budget</p>
-                      <p className="font-display font-semibold text-gray-900 text-sm">{formatCurrency(site.totalBudget)}</p>
+                    <div className="bg-gray-50 dark:bg-slate-700/60 rounded-xl p-3">
+                      <p className="text-xs text-gray-400 dark:text-slate-400 mb-0.5">Budget</p>
+                      <p className="font-display font-semibold text-gray-900 dark:text-white text-sm">{formatCurrency(site.totalBudget)}</p>
                     </div>
-                    <div className="bg-gray-50 rounded-xl p-3">
-                      <p className="text-xs text-gray-400 mb-0.5">Spent</p>
-                      <p className="font-display font-semibold text-gray-900 text-sm">{formatCurrency(site.totalSpent)}</p>
+                    <div className="bg-gray-50 dark:bg-slate-700/60 rounded-xl p-3">
+                      <p className="text-xs text-gray-400 dark:text-slate-400 mb-0.5">Spent</p>
+                      <p className="font-display font-semibold text-gray-900 dark:text-white text-sm">{formatCurrency(site.totalSpent)}</p>
                     </div>
                   </div>
 

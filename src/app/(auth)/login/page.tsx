@@ -92,7 +92,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
+      <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-slate-900">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8">
@@ -104,12 +104,12 @@ export default function LoginPage() {
               className="rounded-xl object-contain"
               priority
             />
-            <span className="font-display font-bold text-gray-900 text-xl">{BRAND.name}</span>
+            <span className="font-display font-bold text-gray-900 dark:text-white text-xl">{BRAND.name}</span>
           </div>
 
           <div className="animate-slide-up">
-            <h2 className="font-display font-bold text-gray-900 text-3xl mb-1">Sign in</h2>
-            <p className="text-gray-500 text-sm mb-8">Enter your credentials to access the dashboard</p>
+            <h2 className="font-display font-bold text-gray-900 dark:text-white text-3xl mb-1">Sign in</h2>
+            <p className="text-gray-500 dark:text-slate-400 text-sm mb-8">Enter your credentials to access the dashboard</p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -152,7 +152,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <p className="mt-6 text-center text-xs text-gray-400">
+            <p className="mt-6 text-center text-xs text-gray-400 dark:text-slate-500">
               Contact your administrator if you need access.
             </p>
           </div>

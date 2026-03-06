@@ -57,7 +57,7 @@ export function MaterialManagement({ materials, isAdmin }: { materials: Material
       {isAdmin && (
         <div className="card">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-display font-semibold text-gray-900">{showForm ? (editingId ? 'Edit Material' : 'Add Material') : 'Material Registry'}</h3>
+            <h3 className="font-display font-semibold text-gray-900 dark:text-white">{showForm ? (editingId ? 'Edit Material' : 'Add Material') : 'Material Registry'}</h3>
             {!showForm && <button onClick={() => { resetForm(); setShowForm(true) }} className="btn-primary text-xs py-1.5"><Plus className="w-3.5 h-3.5" />Add Material</button>}
           </div>
 
@@ -96,7 +96,7 @@ export function MaterialManagement({ materials, isAdmin }: { materials: Material
       {/* Filter */}
       <div className="flex gap-2 flex-wrap">
         {categories.map(c => (
-          <button key={c} onClick={() => setFilter(c)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${filter === c ? 'bg-primary-500 text-white border-primary-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          <button key={c} onClick={() => setFilter(c)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${filter === c ? 'bg-primary-500 text-white border-primary-500' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>
             {c}
           </button>
         ))}
@@ -124,7 +124,7 @@ export function MaterialManagement({ materials, isAdmin }: { materials: Material
                   <tr key={m.id}>
                     <td className="font-medium text-gray-800">{m.name}</td>
                     <td className="hidden sm:table-cell">
-                      <span className="badge bg-blue-50 text-blue-700">{m.category}</span>
+                      <span className="badge badge-blue">{m.category}</span>
                     </td>
                     <td className="text-gray-500">{m.unit}</td>
                     <td className="text-financial font-semibold">{formatCurrency(m.defaultRate)}</td>

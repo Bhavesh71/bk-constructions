@@ -16,8 +16,8 @@ export default async function LabourPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="font-display font-bold text-gray-900 text-2xl">Labour Management</h2>
-          <p className="text-gray-500 text-sm mt-0.5">Manage your workforce and track earnings</p>
+          <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Labour Management</h2>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Manage your workforce and track earnings</p>
         </div>
       </div>
 
@@ -35,7 +35,7 @@ export default async function LabourPage() {
         </div>
         <div className="kpi-card">
           <TrendingUp className="w-8 h-8 text-amber-500 mb-1" />
-          <p className="kpi-value text-lg">{formatCurrency(totalEarnings)}</p>
+          <p className="kpi-value">{formatCurrency(totalEarnings)}</p>
           <p className="kpi-label">Total Paid</p>
         </div>
       </div>

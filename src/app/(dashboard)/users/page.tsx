@@ -8,8 +8,8 @@ export default async function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display font-bold text-gray-900 text-2xl">User Management</h2>
-        <p className="text-gray-500 text-sm mt-0.5">Manage team access and permissions</p>
+        <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">User Management</h2>
+        <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Manage team access and permissions</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 max-w-sm">

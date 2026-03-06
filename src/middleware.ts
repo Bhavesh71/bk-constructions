@@ -6,8 +6,9 @@ export default withAuth(
     const token = req.nextauth.token
     const pathname = req.nextUrl.pathname
 
-    // Admin-only routes
-    const adminRoutes = ['/users', '/settings']
+    // Admin-only routes (/settings is accessible to all roles — the page itself
+    // renders role-appropriate content; only /users is truly admin-only)
+    const adminRoutes = ['/users']
     const isAdminRoute = adminRoutes.some((route) => pathname.startsWith(route))
 
     if (isAdminRoute && token?.role !== 'ADMIN') {

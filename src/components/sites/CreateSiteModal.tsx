@@ -55,10 +55,10 @@ export function CreateSiteModal() {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg animate-slide-up">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h3 className="font-display font-bold text-gray-900 text-lg">Create New Site</h3>
-              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg animate-slide-up border border-transparent dark:border-slate-700">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-slate-700">
+              <h3 className="font-display font-bold text-gray-900 dark:text-white text-lg">Create New Site</h3>
+              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>

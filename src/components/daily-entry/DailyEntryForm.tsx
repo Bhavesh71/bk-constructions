@@ -572,7 +572,7 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
           <div className="flex gap-3">
             <button
               onClick={handleSubmit}
-              disabled={saving || totals.grand === 0}
+              disabled={saving}
               className="btn-primary flex-1 justify-center py-3 text-base"
             >
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}

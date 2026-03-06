@@ -72,7 +72,7 @@ export default async function SiteDetailPage({ params }: Props) {
           <div className="flex justify-between text-sm mb-2">
             <div>
               <span className="font-semibold text-gray-700">Budget Progress</span>
-              <span className={`ml-2 badge ${budget.bg} ${budget.color}`}>{budget.label}</span>
+              <span className={`ml-2 badge ${budget.bg} ${budget.color} ${budget.border}`}>{budget.label}</span>
             </div>
             <span className="text-gray-500">{pct.toFixed(1)}% used</span>
           </div>

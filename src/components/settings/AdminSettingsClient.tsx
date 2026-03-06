@@ -110,7 +110,7 @@ export function AdminSettingsClient({ user, stats, appSettings }: AdminSettingsP
       <div className="card">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 gradient-indigo rounded-xl flex items-center justify-center">
-            <BarChart2 className="w-4.5 h-4.5 text-white" />
+            <BarChart2 className="w-[18px] h-[18px] text-white" />
           </div>
           <h3 className="font-display font-semibold text-gray-900 dark:text-white">Business Overview</h3>
         </div>
@@ -139,7 +139,7 @@ export function AdminSettingsClient({ user, stats, appSettings }: AdminSettingsP
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 gradient-emerald rounded-xl flex items-center justify-center">
-              <Building2 className="w-4.5 h-4.5 text-white" />
+              <Building2 className="w-[18px] h-[18px] text-white" />
             </div>
             <div>
               <h3 className="font-display font-semibold text-gray-900 dark:text-white">Company Settings</h3>
@@ -198,7 +198,7 @@ export function AdminSettingsClient({ user, stats, appSettings }: AdminSettingsP
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-gray-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
-              {theme === 'dark' ? <Moon className="w-4.5 h-4.5 text-primary-400" /> : <Sun className="w-4.5 h-4.5 text-amber-500" />}
+              {theme === 'dark' ? <Moon className="w-[18px] h-[18px] text-primary-400" /> : <Sun className="w-[18px] h-[18px] text-amber-500" />}
             </div>
             <div>
               <h3 className="font-display font-semibold text-gray-900 dark:text-white">Theme</h3>
@@ -222,7 +222,7 @@ export function AdminSettingsClient({ user, stats, appSettings }: AdminSettingsP
       <div className="card">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-9 h-9 bg-gray-100 dark:bg-slate-700 rounded-xl flex items-center justify-center">
-            <Lock className="w-4.5 h-4.5 text-gray-500 dark:text-slate-400" />
+            <Lock className="w-[18px] h-[18px] text-gray-500 dark:text-slate-400" />
           </div>
           <div>
             <h3 className="font-display font-semibold text-gray-900 dark:text-white">My Account</h3>

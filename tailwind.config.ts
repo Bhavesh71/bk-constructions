@@ -10,9 +10,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-syne)', 'var(--font-dm-sans)', 'sans-serif'],
-        display: ['var(--font-syne)', 'sans-serif'],
-        mono: ['var(--font-jetbrains)', 'monospace'],
+        sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-inter)', 'var(--font-dm-sans)', 'sans-serif'],
+        mono: ['var(--font-jetbrains)', 'DM Mono', 'monospace'],
       },
       colors: {
         primary: {

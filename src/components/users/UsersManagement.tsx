@@ -47,7 +47,7 @@ export function UsersManagement({ users }: { users: User[] }) {
     <div className="space-y-4">
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-semibold text-gray-900">Team Members</h3>
+          <h3 className="font-display font-semibold text-gray-900 dark:text-white">Team Members</h3>
           {!showForm && (
             <button onClick={() => setShowForm(true)} className="btn-primary text-xs py-1.5">
               <UserPlus className="w-3.5 h-3.5" />Invite User
@@ -56,8 +56,8 @@ export function UsersManagement({ users }: { users: User[] }) {
         </div>
 
         {showForm && (
-          <form onSubmit={handleSubmit} className="space-y-4 mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-            <h4 className="font-semibold text-gray-800 text-sm">New User</h4>
+          <form onSubmit={handleSubmit} className="space-y-4 mb-6 p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl border border-gray-100 dark:border-slate-600">
+            <h4 className="font-semibold text-gray-800 dark:text-slate-200 text-sm">New User</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 sm:col-span-1">
                 <label className="label">Full Name *</label>
@@ -91,23 +91,23 @@ export function UsersManagement({ users }: { users: User[] }) {
 
         <div className="space-y-2">
           {users.map((user) => (
-            <div key={user.id} className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-sm flex-shrink-0">
+            <div key={user.id} className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-sm flex-shrink-0">
                 {user.name.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-900 text-sm">{user.name}</p>
-                  <span className={`badge text-xs ${user.role === 'ADMIN' ? 'bg-primary-100 text-primary-700' : 'bg-green-100 text-green-700'}`}>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{user.name}</p>
+                  <span className={`badge text-xs ${user.role === 'ADMIN' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-primary-200 dark:border-primary-800' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'}`}>
                     <Shield className="w-3 h-3" />{user.role}
                   </span>
-                  {user.id === session?.user?.id && <span className="badge bg-amber-100 text-amber-700 text-xs">You</span>}
+                  {user.id === session?.user?.id && <span className="badge bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 text-xs">You</span>}
                 </div>
-                <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500 truncate">{user.email}</p>
               </div>
               <div className="text-right hidden sm:block">
-                <p className="text-xs text-gray-400">Joined</p>
-                <p className="text-xs text-gray-600">{formatDate(user.createdAt)}</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500">Joined</p>
+                <p className="text-xs text-gray-600 dark:text-slate-400">{formatDate(user.createdAt)}</p>
               </div>
               {user.id !== session?.user?.id && (
                 <button onClick={() => handleDelete(user.id, user.name)} className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
