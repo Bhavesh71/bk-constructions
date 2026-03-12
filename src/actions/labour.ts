@@ -272,7 +272,7 @@ export async function addLabourAdvance(data: unknown): Promise<ActionResponse> {
             grandTotal: rec.totalMaterial + newTotalOther + rec.totalLabour,
           },
         })
-      })
+      }, { timeout: 15000 })
     } else {
       // No site/date context — advance without expense linkage
       await prisma.labourAdvance.create({
@@ -348,7 +348,7 @@ export async function editLabourAdvance(
           },
         })
       }
-    })
+    }, { timeout: 15000 })
 
     revalidatePath('/labour')
     revalidatePath('/dashboard')
@@ -407,7 +407,7 @@ export async function deleteLabourAdvance(id: string): Promise<ActionResponse> {
       }
 
       await tx.labourAdvance.delete({ where: { id } })
-    })
+    }, { timeout: 15000 })
 
     revalidatePath('/labour')
     revalidatePath('/dashboard')
@@ -565,12 +565,10 @@ export async function recordWeeklySalary(data: unknown): Promise<ActionResponse>
           data: { isPaid: true, paidAt: new Date() },
         })
 
-        // 4. Recalculate totalLabour for each affected DailyRecord
-        //    totalLabour = sum of cost for ALL paid entries on that record
-        //    (includes any previously-paid entries for other workers on same day)
+        // 4. Recalculate totalLabour for each affected DailyRecord (in parallel)
         const recordIds = [...new Set(unpaidEntries.map((e) => e.dailyRecordId))]
 
-        for (const recordId of recordIds) {
+        await Promise.all(recordIds.map(async (recordId) => {
           const [labourSum, record] = await Promise.all([
             tx.labourEntry.aggregate({
               where: { dailyRecordId: recordId, isPaid: true, present: true },
@@ -592,17 +590,70 @@ export async function recordWeeklySalary(data: unknown): Promise<ActionResponse>
               },
             })
           }
-        }
+        }))
       }
 
       // 5. Settle the selected advances
+      //    IMPORTANT: When an advance is settled, its linked OtherExpense must be
+      //    REMOVED from the DailyRecord it was originally recorded on.
+      //
+      //    Without this fix:
+      //      - Advance day: totalOther includes advance amount  ← cash went out ✓
+      //      - Payment day: totalLabour includes full gross wage ← double-counts advance ✗
+      //
+      //    With this fix:
+      //      - Advance day: OtherExpense deleted → totalOther reduced ← advance removed ✓
+      //      - Payment day: totalLabour = full gross wage ✓
+      //      - Net effect: site total = gross wages only, no duplication ✓
       if (parsed.settledAdvanceIds.length > 0) {
+        const advancesToSettle = await tx.labourAdvance.findMany({
+          where: { id: { in: parsed.settledAdvanceIds } },
+          include: {
+            labour: { select: { name: true } },
+            dailyRecord: {
+              select: { id: true, totalOther: true, totalMaterial: true, totalLabour: true },
+            },
+          },
+        })
+
+        await Promise.all(advancesToSettle.map(async (adv) => {
+          if (!adv.dailyRecord) return
+
+          // Find and delete the linked OtherExpense (precise [ADV:id] match or legacy fallback)
+          const linked = await findLinkedOtherExpense(
+            tx,
+            adv.dailyRecord.id,
+            adv.id,
+            adv.amount,
+            adv.labour.name,
+          )
+          if (linked) {
+            await tx.otherExpense.delete({ where: { id: linked.id } })
+          }
+
+          // Re-sum remaining OtherExpense on that day (handles multiple advances correctly)
+          const remaining = await tx.otherExpense.aggregate({
+            where: { dailyRecordId: adv.dailyRecord.id },
+            _sum: { amount: true },
+          })
+          const newTotalOther = remaining._sum.amount ?? 0
+
+          await tx.dailyRecord.update({
+            where: { id: adv.dailyRecord.id },
+            data: {
+              totalOther: newTotalOther,
+              grandTotal: adv.dailyRecord.totalLabour + adv.dailyRecord.totalMaterial + newTotalOther,
+            },
+          })
+        }))
+
+        // Mark all selected advances as settled
         await tx.labourAdvance.updateMany({
           where: { id: { in: parsed.settledAdvanceIds } },
           data: { isSettled: true, settledAt: new Date(), weeklyPayId: salary.id },
         })
       }
-    })
+    }, { timeout: 30000 })
 
     revalidatePath('/labour')
     revalidatePath('/dashboard')
