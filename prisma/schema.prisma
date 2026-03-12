@@ -20,37 +20,37 @@ enum SiteStatus {
   CANCELLED
 }
 
-// ─── App-wide settings (DB-driven, single row) ─────────────────────────────
 model AppSettings {
-  id             String   @id @default(uuid())
-  companyName    String   @default("BK Constructions")
-  companyTagline String?  @default("Operations")
-  logoUrl        String?
-  currency       String   @default("INR")
-  address        String?
-  phone          String?
-  email          String?
-  gstNumber      String?
-  contactPerson  String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                      String   @id @default(uuid())
+  companyName             String   @default("BK Constructions")
+  companyTagline          String?  @default("Operations")
+  logoUrl                 String?
+  currency                String   @default("INR")
+  address                 String?
+  phone                   String?
+  email                   String?
+  gstNumber               String?
+  contactPerson           String?
+  customExpenseCategories String?  @default("[]")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }
 
 model User {
-  id            String        @id @default(cuid())
-  name          String
-  email         String        @unique
-  password      String
-  role          Role          @default(SUPERVISOR)
-  theme         String        @default("light")
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  dailyRecords  DailyRecord[]
-  budgetEntries BudgetEntry[]
-  assignedSites SiteUser[]
-  // Audit relations
-  voidedBudgets BudgetEntry[] @relation("BudgetVoidedBy")
-  editedBudgets BudgetEntry[] @relation("BudgetEditedBy")
+  id             String         @id @default(cuid())
+  name           String
+  email          String         @unique
+  password       String
+  role           Role           @default(SUPERVISOR)
+  theme          String         @default("light")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  dailyRecords   DailyRecord[]
+  budgetEntries  BudgetEntry[]
+  assignedSites  SiteUser[]
+  weeklySalaries WeeklySalary[]
+  voidedBudgets  BudgetEntry[]  @relation("BudgetVoidedBy")
+  editedBudgets  BudgetEntry[]  @relation("BudgetEditedBy")
 }
 
 model Site {
@@ -80,22 +80,18 @@ model SiteUser {
   @@unique([siteId, userId])
 }
 
-// ─── Budget Entry — soft delete, audit trail ───────────────────────────────
 model BudgetEntry {
   id          String    @id @default(cuid())
   site        Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId      String
   amount      Float
   note        String?
-  // Audit: creation
   createdBy   User      @relation(fields: [createdById], references: [id])
   createdById String
   createdAt   DateTime  @default(now())
-  // Audit: edits
   updatedAt   DateTime  @updatedAt
   editedBy    User?     @relation("BudgetEditedBy", fields: [editedById], references: [id])
   editedById  String?
-  // Audit: soft-delete / void
   isVoided    Boolean   @default(false)
   voidedAt    DateTime?
   voidedBy    User?     @relation("BudgetVoidedBy", fields: [voidedById], references: [id])
@@ -103,6 +99,8 @@ model BudgetEntry {
   voidReason  String?
 }
 
+// grandTotal = totalMaterial + totalOther + totalLabour
+// totalLabour starts 0; updated when weekly salary is paid
 model DailyRecord {
   id              String          @id @default(cuid())
   site            Site            @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -120,20 +118,71 @@ model DailyRecord {
   labourEntries   LabourEntry[]
   materialEntries MaterialEntry[]
   otherExpenses   OtherExpense[]
+  labourAdvances  LabourAdvance[]
 
   @@unique([siteId, date])
 }
 
-// ─── Labour — OT fields REMOVED ────────────────────────────────────────────
 model Labour {
+  id             String          @id @default(cuid())
+  name           String
+  designation    String
+  dailyWage      Float
+  active         Boolean         @default(true)
+  labourType     String          @default("REGULAR")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  labourEntries  LabourEntry[]
+  advances       LabourAdvance[]
+  weeklySalaries WeeklySalary[]
+}
+
+// isPaid=false until Pay Week; when paid → isPaid=true + DailyRecord totals updated
+model LabourEntry {
+  id            String      @id @default(cuid())
+  dailyRecord   DailyRecord @relation(fields: [dailyRecordId], references: [id], onDelete: Cascade)
+  dailyRecordId String
+  labour        Labour      @relation(fields: [labourId], references: [id])
+  labourId      String
+  rate          Float
+  cost          Float
+  present       Boolean     @default(true)
+  isPaid        Boolean     @default(false)
+  paidAt        DateTime?
+  createdAt     DateTime    @default(now())
+}
+
+model LabourAdvance {
   id            String        @id @default(cuid())
-  name          String
-  designation   String
-  dailyWage     Float
-  active        Boolean       @default(true)
+  labour        Labour        @relation(fields: [labourId], references: [id], onDelete: Cascade)
+  labourId      String
+  amount        Float
+  reason        String?
+  dailyRecord   DailyRecord?  @relation(fields: [dailyRecordId], references: [id], onDelete: SetNull)
+  dailyRecordId String?
+  isSettled     Boolean       @default(false)
+  settledAt     DateTime?
+  weeklyPay     WeeklySalary? @relation(fields: [weeklyPayId], references: [id], onDelete: SetNull)
+  weeklyPayId   String?
   createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  labourEntries LabourEntry[]
+}
+
+model WeeklySalary {
+  id              String          @id @default(cuid())
+  labour          Labour          @relation(fields: [labourId], references: [id], onDelete: Cascade)
+  labourId        String
+  weekStart       DateTime        @db.Date
+  weekEnd         DateTime        @db.Date
+  daysWorked      Int
+  totalWage       Float
+  advanceDeducted Float           @default(0)
+  netPaid         Float
+  paidAt          DateTime        @default(now())
+  paidBy          User            @relation(fields: [paidById], references: [id])
+  paidById        String
+  notes           String?
+  advances        LabourAdvance[]
+  createdAt       DateTime        @default(now())
 }
 
 model Material {
@@ -145,19 +194,6 @@ model Material {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   materialEntries MaterialEntry[]
-}
-
-// ─── Labour Entry — OT fields REMOVED ──────────────────────────────────────
-model LabourEntry {
-  id            String      @id @default(cuid())
-  dailyRecord   DailyRecord @relation(fields: [dailyRecordId], references: [id], onDelete: Cascade)
-  dailyRecordId String
-  labour        Labour      @relation(fields: [labourId], references: [id])
-  labourId      String
-  rate          Float       // editable rate (defaults to labour.dailyWage)
-  cost          Float
-  present       Boolean     @default(true)
-  createdAt     DateTime    @default(now())
 }
 
 model MaterialEntry {

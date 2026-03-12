@@ -107,7 +107,7 @@ export async function getBusinessStats() {
     activeSites,
     budgetSum,
     spentAgg,
-    labourAgg,
+    labourPaidAgg,
     materialAgg,
     totalRecords,
     totalWorkers,
@@ -120,7 +120,8 @@ export async function getBusinessStats() {
       where: { isVoided: false },
     }),
     prisma.dailyRecord.aggregate({ _sum: { grandTotal: true } }),
-    prisma.dailyRecord.aggregate({ _sum: { totalLabour: true } }),
+    // Actual money paid out to labour
+    prisma.weeklySalary.aggregate({ _sum: { netPaid: true } }),
     prisma.dailyRecord.aggregate({ _sum: { totalMaterial: true } }),
     prisma.dailyRecord.count(),
     prisma.labour.count({ where: { active: true } }),
@@ -130,10 +131,10 @@ export async function getBusinessStats() {
   return {
     totalSites,
     activeSites,
-    totalBudget: budgetSum._sum.amount || 0,
-    totalSpent: spentAgg._sum.grandTotal || 0,
-    totalLabourPaid: labourAgg._sum.totalLabour || 0,
-    totalMaterialSpent: materialAgg._sum.totalMaterial || 0,
+    totalBudget: budgetSum._sum.amount ?? 0,
+    totalSpent: spentAgg._sum.grandTotal ?? 0,
+    totalLabourPaid: labourPaidAgg._sum.netPaid ?? 0,
+    totalMaterialSpent: materialAgg._sum.totalMaterial ?? 0,
     totalRecords,
     totalWorkers,
     totalMaterials,
@@ -169,5 +170,64 @@ export async function getSupervisorStats() {
   return {
     assignedSites: assignedSites.map((su) => su.site),
     totalRecordsCreated: recentRecords,
+  }
+}
+
+// ─── Custom Expense Categories ──────────────────────────────────────────────
+export async function getCustomCategories(): Promise<string[]> {
+  const settings = await prisma.appSettings.findFirst()
+  if (!settings?.customExpenseCategories) return []
+  try {
+    return JSON.parse(settings.customExpenseCategories)
+  } catch {
+    return []
+  }
+}
+
+export async function addCustomCategory(category: string): Promise<ActionResponse> {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const settings = await prisma.appSettings.findFirst()
+    const existing: string[] = settings?.customExpenseCategories
+      ? JSON.parse(settings.customExpenseCategories)
+      : []
+
+    if (existing.includes(category)) return { success: false, error: 'Category already exists' }
+
+    const updated = [...existing, category]
+    await prisma.appSettings.updateMany({
+      data: { customExpenseCategories: JSON.stringify(updated) },
+    })
+
+    revalidatePath('/daily-entry')
+    revalidatePath('/settings')
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteCustomCategory(category: string): Promise<ActionResponse> {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || session.user.role !== 'ADMIN') return { success: false, error: 'Unauthorized' }
+
+    const settings = await prisma.appSettings.findFirst()
+    const existing: string[] = settings?.customExpenseCategories
+      ? JSON.parse(settings.customExpenseCategories)
+      : []
+
+    const updated = existing.filter(c => c !== category)
+    await prisma.appSettings.updateMany({
+      data: { customExpenseCategories: JSON.stringify(updated) },
+    })
+
+    revalidatePath('/daily-entry')
+    revalidatePath('/settings')
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
   }
 }

@@ -59,42 +59,70 @@ export async function getSites() {
   })
 }
 
+// BUG-5 FIX: Only ACTIVE sites for attendance/daily-entry dropdowns
+export async function getActiveSites() {
+  const session = await getServerSession(authOptions)
+  if (!session) throw new Error('Unauthorized')
+
+  const isAdmin = session.user.role === 'ADMIN'
+  const siteWhere = isAdmin
+    ? { status: 'ACTIVE' as const }
+    : { status: 'ACTIVE' as const, assignedUsers: { some: { userId: session.user.id } } }
+
+  return prisma.site.findMany({
+    where: siteWhere,
+    select: { id: true, name: true, location: true, status: true },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+
 export async function getSiteById(id: string) {
   const session = await getServerSession(authOptions)
   if (!session) throw new Error('Unauthorized')
 
-  const site = await prisma.site.findUnique({
-    where: { id },
-    include: {
-      budgetEntries: {
-        include: {
-          createdBy: { select: { name: true } },
-          editedBy: { select: { name: true } },
-          voidedBy: { select: { name: true } },
+  const [site, spentAgg] = await Promise.all([
+    prisma.site.findUnique({
+      where: { id },
+      include: {
+        budgetEntries: {
+          include: {
+            createdBy: { select: { name: true } },
+            editedBy: { select: { name: true } },
+            voidedBy: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
         },
-        orderBy: { createdAt: 'desc' },
+        // Recent records for display — all records for totals handled separately
+        dailyRecords: {
+          orderBy: { date: 'desc' },
+          take: 50,
+          include: { createdBy: { select: { name: true } } },
+        },
+        assignedUsers: {
+          include: { user: { select: { id: true, name: true, email: true, role: true } } },
+        },
+        _count: { select: { dailyRecords: true } },
       },
-      dailyRecords: {
-        orderBy: { date: 'desc' },
-        take: 30,
-        include: { createdBy: { select: { name: true } } },
-      },
-      assignedUsers: {
-        include: { user: { select: { id: true, name: true, email: true, role: true } } },
-      },
-      _count: { select: { dailyRecords: true } },
-    },
-  })
+    }),
+    // Aggregate ALL records for correct totals — not just the recent 50
+    prisma.dailyRecord.aggregate({
+      where: { siteId: id },
+      _sum: { grandTotal: true, totalLabour: true, totalMaterial: true, totalOther: true },
+    }),
+  ])
 
   if (!site) throw new Error('Site not found')
 
-  // Only sum non-voided budget entries
   const totalBudget = site.budgetEntries
     .filter((b) => !b.isVoided)
     .reduce((sum, b) => sum + b.amount, 0)
-  const totalSpent = site.dailyRecords.reduce((sum, r) => sum + r.grandTotal, 0)
+  const totalSpent    = spentAgg._sum.grandTotal   ?? 0
+  const totalLabour   = spentAgg._sum.totalLabour  ?? 0
+  const totalMaterial = spentAgg._sum.totalMaterial ?? 0
+  const totalOther    = spentAgg._sum.totalOther   ?? 0
 
-  return { ...site, totalBudget, totalSpent, remainingBudget: totalBudget - totalSpent }
+  return { ...site, totalBudget, totalSpent, remainingBudget: totalBudget - totalSpent, totalLabour, totalMaterial, totalOther }
 }
 
 export async function createSite(data: unknown): Promise<ActionResponse<{ id: string }>> {

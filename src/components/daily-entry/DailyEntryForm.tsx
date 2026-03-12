@@ -2,94 +2,72 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  Plus, Trash2, Users, Package, Coins, Save,
-  Loader2, RefreshCw, X, ChevronDown, Eye,
+  Plus, Package, Coins, Save, Loader2, RefreshCw, X,
+  ChevronDown, Eye, Search, Zap, Info, Users,
 } from 'lucide-react'
 import { saveDailyRecord, getDailyRecord } from '@/actions/daily-records'
+import { quickCreateMaterial } from '@/actions/materials'
+import { addCustomCategory } from '@/actions/settings'
 import { formatCurrency } from '@/lib/utils'
+import { EXPENSE_CATEGORIES, MATERIAL_CATEGORIES, QUICK_ADD_TILES } from '@/lib/constants'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
-interface Labour {
-  id: string
-  name: string
-  designation: string
-  dailyWage: number
-}
-
-interface Material {
-  id: string
-  name: string
-  unit: string
-  defaultRate: number
-  category: string
-}
-
-interface Site {
-  id: string
-  name: string
-  location: string
-}
-
-interface LabourEntry {
-  labourId: string
-  name: string
-  designation: string
-  rate: number           // editable, defaults to dailyWage
-  present: boolean
-}
-
-interface MaterialEntry {
-  materialId: string
-  name: string
-  unit: string
-  quantity: number
-  rate: number
-}
-
-interface OtherEntry {
-  category: string
-  amount: number
-  description: string
-}
-
-const OTHER_CATEGORIES = [
-  'Transport', 'Equipment Rental', 'Fuel', 'Food', 'Utilities', 'Security', 'Miscellaneous',
-]
+interface Material { id: string; name: string; unit: string; defaultRate: number; category: string }
+interface Site { id: string; name: string; location: string }
+interface MaterialEntry { materialId: string; name: string; unit: string; quantity: number; rate: number }
+interface OtherEntry { category: string; amount: number; description: string }
 
 interface Props {
   sites: Site[]
-  labours: Labour[]
   materials: Material[]
+  customCategories: string[]
   defaultSiteId?: string
   defaultDate: string
 }
 
-export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defaultDate }: Props) {
+export function DailyEntryForm({
+  sites,
+  materials: initialMaterials,
+  customCategories: initCustom,
+  defaultSiteId,
+  defaultDate,
+}: Props) {
   const router = useRouter()
   const [siteId, setSiteId] = useState(defaultSiteId || sites[0]?.id || '')
   const [date, setDate] = useState(defaultDate)
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [activeSection, setActiveSection] = useState<'labour' | 'material' | 'other'>('labour')
+  const [activeSection, setActiveSection] = useState<'material' | 'other'>('material')
   const [showSummary, setShowSummary] = useState(false)
-
-  const [labourEntries, setLabourEntries] = useState<LabourEntry[]>(
-    labours.map((l) => ({
-      labourId: l.id,
-      name: l.name,
-      designation: l.designation,
-      rate: l.dailyWage,
-      present: false,
-    }))
-  )
-  const [materialEntries, setMaterialEntries] = useState<MaterialEntry[]>([])
-  const [otherEntries, setOtherEntries] = useState<OtherEntry[]>([])
   const [existingRecord, setExistingRecord] = useState(false)
+  const [allMaterials, setAllMaterials] = useState<Material[]>(initialMaterials)
 
-  const loadExistingRecord = useCallback(async () => {
+  // Custom categories
+  const [customCategories, setCustomCategories] = useState<string[]>(initCustom)
+  const [showAddCategory, setShowAddCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
+  const allCategories = useMemo(() => [...EXPENSE_CATEGORIES, ...customCategories], [customCategories])
+
+  // Materials
+  const [materialEntries, setMaterialEntries] = useState<MaterialEntry[]>([])
+  const [materialSearch, setMaterialSearch] = useState('')
+  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false)
+  const [showNewMaterial, setShowNewMaterial] = useState(false)
+  const [newMat, setNewMat] = useState({ name: '', unit: '', defaultRate: '', category: 'Masonry' })
+  const [creatingMat, setCreatingMat] = useState(false)
+
+  // Other expenses
+  const [otherEntries, setOtherEntries] = useState<OtherEntry[]>([])
+  // Advances loaded from an existing record — read-only, managed via Labour page
+  const [storedAdvanceTotal, setStoredAdvanceTotal] = useState(0)
+  const [storedAdvanceCount, setStoredAdvanceCount] = useState(0)
+
+  // Load existing record when site or date changes
+  const loadExisting = useCallback(async () => {
     if (!siteId || !date) return
     setLoading(true)
     try {
@@ -97,18 +75,6 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
       if (record) {
         setExistingRecord(true)
         setNotes(record.notes || '')
-        setLabourEntries(
-          labours.map((l) => {
-            const existing = record.labourEntries.find((e: any) => e.labourId === l.id)
-            return {
-              labourId: l.id,
-              name: l.name,
-              designation: l.designation,
-              rate: existing?.rate ?? l.dailyWage,
-              present: existing?.present || false,
-            }
-          })
-        )
         setMaterialEntries(
           record.materialEntries.map((e: any) => ({
             materialId: e.materialId,
@@ -125,127 +91,135 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
             description: e.description || '',
           }))
         )
+        // Capture advances separately — they live in Labour page, shown read-only here
+        const advances: any[] = (record as any).labourAdvances || []
+        setStoredAdvanceTotal(advances.reduce((s: number, a: any) => s + a.amount, 0))
+        setStoredAdvanceCount(advances.length)
       } else {
         setExistingRecord(false)
         setNotes('')
-        setLabourEntries(labours.map((l) => ({
-          labourId: l.id,
-          name: l.name,
-          designation: l.designation,
-          rate: l.dailyWage,
-          present: false,
-        })))
         setMaterialEntries([])
         setOtherEntries([])
+        setStoredAdvanceTotal(0)
+        setStoredAdvanceCount(0)
       }
     } finally {
       setLoading(false)
     }
-  }, [siteId, date, labours])
+  }, [siteId, date])
 
-  useEffect(() => { loadExistingRecord() }, [loadExistingRecord])
+  useEffect(() => { loadExisting() }, [loadExisting])
 
-  // ── Totals ────────────────────────────────────────────────────────────────
   const totals = useMemo(() => {
-    const labour = labourEntries.filter(e => e.present).reduce((s, e) => s + e.rate, 0)
     const material = materialEntries.reduce((s, e) => s + e.quantity * e.rate, 0)
     const other = otherEntries.reduce((s, e) => s + e.amount, 0)
-    return { labour, material, other, grand: labour + material + other }
-  }, [labourEntries, materialEntries, otherEntries])
+    // storedAdvanceTotal is included in the DB grand total — show it here so the
+    // summary matches what is actually stored/saved.
+    return { material, other, grand: material + other + storedAdvanceTotal }
+  }, [materialEntries, otherEntries, storedAdvanceTotal])
 
-  const presentCount = labourEntries.filter(e => e.present).length
+  // --- Material helpers ---
+  const filteredMaterials = useMemo(() => {
+    if (!materialSearch) return allMaterials
+    const q = materialSearch.toLowerCase()
+    return allMaterials.filter((m) => m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q))
+  }, [allMaterials, materialSearch])
 
-  // ── Labour helpers ─────────────────────────────────────────────────────────
-  function togglePresent(idx: number) {
-    setLabourEntries(prev => {
-      const next = [...prev]
-      next[idx] = { ...next[idx], present: !next[idx].present }
-      return next
-    })
-  }
-
-  function setRate(idx: number, rate: number) {
-    setLabourEntries(prev => {
-      const next = [...prev]
-      next[idx] = { ...next[idx], rate }
-      return next
-    })
-  }
-
-  // ── Material helpers ───────────────────────────────────────────────────────
   function addMaterial(mat: Material) {
-    if (materialEntries.find(e => e.materialId === mat.id)) {
-      toast.error('Material already added')
+    if (materialEntries.find((e) => e.materialId === mat.id)) {
+      toast.error('Already added')
       return
     }
-    setMaterialEntries(prev => [
+    setMaterialEntries((prev) => [
       ...prev,
       { materialId: mat.id, name: mat.name, unit: mat.unit, quantity: 1, rate: mat.defaultRate },
     ])
+    setMaterialSearch('')
+    setShowMaterialDropdown(false)
   }
 
   function updateMaterial(idx: number, field: 'quantity' | 'rate', value: number) {
-    setMaterialEntries(prev => {
-      const next = [...prev]
-      next[idx] = { ...next[idx], [field]: value }
-      return next
-    })
+    setMaterialEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)))
   }
 
-  function removeMaterial(idx: number) {
-    setMaterialEntries(prev => prev.filter((_, i) => i !== idx))
+  async function handleCreateMaterial() {
+    if (!newMat.name || !newMat.unit || !newMat.defaultRate) {
+      toast.error('Fill all fields')
+      return
+    }
+    setCreatingMat(true)
+    try {
+      const res = await quickCreateMaterial({
+        name: newMat.name,
+        unit: newMat.unit,
+        defaultRate: parseFloat(newMat.defaultRate),
+        category: newMat.category,
+      })
+      if (res.success && res.data) {
+        setAllMaterials((prev) => [...prev, res.data!])
+        addMaterial(res.data!)
+        setNewMat({ name: '', unit: '', defaultRate: '', category: 'Masonry' })
+        setShowNewMaterial(false)
+        toast.success('Material added to catalogue')
+      } else {
+        toast.error(res.error || 'Failed')
+      }
+    } finally {
+      setCreatingMat(false)
+    }
   }
 
-  // ── Other helpers ──────────────────────────────────────────────────────────
+  // --- Other expense helpers ---
   function addOther() {
-    setOtherEntries(prev => [...prev, { category: OTHER_CATEGORIES[0], amount: 0, description: '' }])
+    setOtherEntries((prev) => [...prev, { category: allCategories[0], amount: 0, description: '' }])
+  }
+
+  function addQuickTile(category: string, defaultAmount: number) {
+    setOtherEntries((prev) => [...prev, { category, amount: defaultAmount, description: '' }])
   }
 
   function updateOther(idx: number, field: keyof OtherEntry, value: any) {
-    setOtherEntries(prev => {
-      const next = [...prev]
-      next[idx] = { ...next[idx], [field]: value }
-      return next
-    })
+    setOtherEntries((prev) => prev.map((e, i) => (i === idx ? { ...e, [field]: value } : e)))
   }
 
-  function removeOther(idx: number) {
-    setOtherEntries(prev => prev.filter((_, i) => i !== idx))
+  async function handleAddCategory() {
+    const trimmed = newCategoryName.trim()
+    if (!trimmed) return
+    if (allCategories.includes(trimmed)) { toast.error('Category already exists'); return }
+    setAddingCategory(true)
+    try {
+      const res = await addCustomCategory(trimmed)
+      if (res.success) {
+        setCustomCategories((prev) => [...prev, trimmed])
+        setNewCategoryName('')
+        setShowAddCategory(false)
+        toast.success(`"${trimmed}" added`)
+      } else {
+        toast.error(res.error || 'Failed')
+      }
+    } finally {
+      setAddingCategory(false) }
   }
 
-  // ── Submit ─────────────────────────────────────────────────────────────────
   async function handleSubmit() {
     if (!siteId) { toast.error('Select a site'); return }
     setSaving(true)
     try {
-      const payload = {
+      const res = await saveDailyRecord({
         siteId,
         date,
         notes,
-        labourEntries: labourEntries
-          .filter(e => e.present)
-          .map(e => ({
-            labourId: e.labourId,
-            rate: e.rate,
-            present: true,
-            cost: e.rate,
-          })),
-        materialEntries: materialEntries.map(e => ({
+        materialEntries: materialEntries.map((e) => ({
           materialId: e.materialId,
           quantity: e.quantity,
           rate: e.rate,
-          total: e.quantity * e.rate,
         })),
-        otherExpenses: otherEntries.map(e => ({
-          category: e.category,
-          amount: e.amount,
-          description: e.description,
-        })),
-      }
-
-      const res = await saveDailyRecord(payload)
+        otherExpenses: otherEntries
+          .filter((e) => e.amount > 0)
+          .map((e) => ({ category: e.category, amount: e.amount, description: e.description })),
+      })
       if (res.success) {
-        toast.success(existingRecord ? 'Record updated' : 'Record saved')
+        toast.success(existingRecord ? 'Record updated!' : 'Record saved!')
         router.push('/records')
       } else {
         toast.error(res.error || 'Failed to save')
@@ -256,19 +230,31 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
   }
 
   const sections = [
-    { id: 'labour' as const, label: 'Labour', icon: Users, badge: `${presentCount} present` },
-    { id: 'material' as const, label: 'Materials', icon: Package, badge: `${materialEntries.length} items` },
-    { id: 'other' as const, label: 'Other', icon: Coins, badge: `${otherEntries.length} items` },
+    { id: 'material' as const, label: 'Materials', icon: Package, badge: materialEntries.length },
+    { id: 'other' as const, label: 'Expenses', icon: Coins, badge: otherEntries.length },
   ]
 
   return (
-    <div className="max-w-3xl space-y-5">
-      {/* Header: site + date */}
+    <div className="max-w-3xl space-y-4">
+      {/* Info Banner */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">
+        <Users className="w-4 h-4 text-blue-500 flex-shrink-0" />
+        <p className="text-sm text-blue-700 dark:text-blue-300">
+          Labour attendance is tracked separately in the{' '}
+          <a href="/labour" className="font-semibold underline">Labour → Attendance</a> tab.
+        </p>
+      </div>
+
+      {/* Site + Date */}
       <div className="card grid sm:grid-cols-3 gap-4">
         <div className="sm:col-span-2">
           <label className="label">Construction Site</label>
-          <select className="input" value={siteId} onChange={e => setSiteId(e.target.value)}>
-            {sites.map(s => <option key={s.id} value={s.id}>{s.name} — {s.location}</option>)}
+          <select className="input" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+            {sites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} — {s.location}
+              </option>
+            ))}
           </select>
         </div>
         <div>
@@ -277,14 +263,14 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
             className="input"
             type="date"
             value={date}
-            onChange={e => setDate(e.target.value)}
-            max={new Date().toISOString().split('T')[0]}
+            onChange={(e) => setDate(e.target.value)}
+            max={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })()}
           />
         </div>
         {existingRecord && (
           <div className="sm:col-span-3 flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-xl">
-            <RefreshCw className="w-3.5 h-3.5" />
-            Updating existing record for this date
+            <RefreshCw className="w-3.5 h-3.5 flex-shrink-0" />
+            Updating existing expense record for this date. Labour attendance for this date is unchanged.
           </div>
         )}
       </div>
@@ -296,231 +282,381 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
       ) : (
         <>
           {/* Section tabs */}
-          <div className="overflow-x-auto -mx-1 px-1 pb-1">
-            <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit">
-              {sections.map(({ id, label, icon: Icon, badge }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveSection(id)}
-                  className={cn('tab-btn flex items-center gap-1.5 whitespace-nowrap', activeSection === id && 'active')}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                  <span className={cn(
-                    'text-[11px] px-1.5 py-0.5 rounded-full font-medium',
-                    activeSection === id
-                      ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
-                      : 'bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-400'
-                  )}>{badge}</span>
-                </button>
-              ))}
-            </div>
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit">
+            {sections.map(({ id, label, icon: Icon, badge }) => (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id)}
+                className={cn('tab-btn flex items-center gap-1.5', activeSection === id && 'active')}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+                {badge > 0 && (
+                  <span
+                    className={cn(
+                      'text-[11px] px-1.5 py-0.5 rounded-full font-bold',
+                      activeSection === id
+                        ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                        : 'bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-400'
+                    )}
+                  >
+                    {badge}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
-          {/* ── Labour Section ──────────────────────────────────────── */}
-          {activeSection === 'labour' && (
-            <div className="card space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">
-                  Mark Attendance &amp; Set Rates
-                </p>
-                <span className="text-xs text-gray-400 dark:text-slate-500">
-                  {presentCount} of {labourEntries.length} present
-                </span>
-              </div>
+          {/* ── MATERIALS ──────────────────────────────────────────────── */}
+          {activeSection === 'material' && (
+            <div className="space-y-3">
+              <div className="card space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                    <input
+                      className="input pl-9 text-sm"
+                      placeholder="Search materials..."
+                      value={materialSearch}
+                      onChange={(e) => {
+                        setMaterialSearch(e.target.value)
+                        setShowMaterialDropdown(true)
+                      }}
+                      onFocus={() => setShowMaterialDropdown(true)}
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowNewMaterial(!showNewMaterial)
+                      setShowMaterialDropdown(false)
+                    }}
+                    className={cn(
+                      'btn-secondary text-xs py-2 whitespace-nowrap',
+                      showNewMaterial && 'bg-primary-50 text-primary-600 border-primary-200'
+                    )}
+                  >
+                    <Plus className="w-3.5 h-3.5" /> New
+                  </button>
+                </div>
 
-              {labourEntries.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-slate-500">No labour records found. Add labour in the Labour section first.</p>
-              ) : (
-                <div className="space-y-2">
-                  {labourEntries.map((entry, idx) => (
-                    <div
-                      key={entry.labourId}
-                      className={cn(
-                        'flex items-center gap-3 p-3 rounded-xl border transition-all duration-150',
-                        entry.present
-                          ? 'border-primary-200 dark:border-primary-700 bg-primary-50/50 dark:bg-primary-900/10'
-                          : 'border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/30'
-                      )}
-                    >
-                      {/* Checkbox */}
-                      <button
-                        onClick={() => togglePresent(idx)}
-                        className={cn(
-                          'w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors',
-                          entry.present
-                            ? 'bg-primary-500 border-primary-500 text-white'
-                            : 'border-gray-300 dark:border-slate-500'
-                        )}
-                      >
-                        {entry.present && <span className="text-white text-xs font-bold">✓</span>}
-                      </button>
-
-                      <div className="flex-1 min-w-0">
-                        <p className={cn(
-                          'text-sm font-medium',
-                          entry.present ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-slate-500'
-                        )}>{entry.name}</p>
-                        <p className="text-xs text-gray-400 dark:text-slate-500">{entry.designation}</p>
+                {/* Search dropdown */}
+                {showMaterialDropdown && materialSearch && (
+                  <div className="border border-gray-200 dark:border-slate-600 rounded-xl overflow-hidden shadow-lg">
+                    {filteredMaterials.length === 0 ? (
+                      <div className="px-4 py-3 text-sm text-gray-400">
+                        No match —{' '}
+                        <button
+                          onClick={() => {
+                            setShowNewMaterial(true)
+                            setShowMaterialDropdown(false)
+                          }}
+                          className="text-primary-500 font-semibold"
+                        >
+                          create "{materialSearch}"?
+                        </button>
                       </div>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto divide-y divide-gray-50 dark:divide-slate-700">
+                        {filteredMaterials.map((mat) => (
+                          <button
+                            key={mat.id}
+                            onClick={() => addMaterial(mat)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-left"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-gray-800 dark:text-slate-200">{mat.name}</p>
+                              <p className="text-xs text-gray-400 dark:text-slate-500">
+                                {mat.category} · {mat.unit}
+                              </p>
+                            </div>
+                            <span className="text-xs font-semibold text-gray-500 dark:text-slate-400 ml-3">
+                              {formatCurrency(mat.defaultRate)}/{mat.unit}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                      {/* Editable rate */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <span className="text-xs text-gray-400 dark:text-slate-500">₹</span>
+                {/* Inline new material form */}
+                {showNewMaterial && (
+                  <div className="bg-primary-50/50 dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800 rounded-xl p-4 space-y-3">
+                    <p className="text-xs font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wider">
+                      Add to Catalogue & Use
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="label text-xs">Material Name *</label>
                         <input
+                          className="input text-sm"
+                          value={newMat.name}
+                          onChange={(e) => setNewMat((p) => ({ ...p, name: e.target.value }))}
+                          placeholder="e.g. Chalk Piece, Plywood Sheet"
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-xs">Category</label>
+                        <select
+                          className="input text-sm"
+                          value={newMat.category}
+                          onChange={(e) => setNewMat((p) => ({ ...p, category: e.target.value }))}
+                        >
+                          {MATERIAL_CATEGORIES.map((c) => (
+                            <option key={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label text-xs">Unit *</label>
+                        <input
+                          className="input text-sm"
+                          value={newMat.unit}
+                          onChange={(e) => setNewMat((p) => ({ ...p, unit: e.target.value }))}
+                          placeholder="Nos, Kg, Bag..."
+                        />
+                      </div>
+                      <div>
+                        <label className="label text-xs">Default Rate (₹) *</label>
+                        <input
+                          className="input text-sm"
                           type="number"
-                          className={cn(
-                            'w-20 sm:w-24 px-2 py-1 rounded-lg border text-sm text-right transition-colors',
-                            entry.present
-                              ? 'border-primary-200 dark:border-primary-700 bg-white dark:bg-slate-700 text-gray-900 dark:text-white'
-                              : 'border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500'
-                          )}
-                          value={entry.rate}
-                          onChange={e => setRate(idx, parseFloat(e.target.value) || 0)}
-                          disabled={!entry.present}
+                          value={newMat.defaultRate}
+                          onChange={(e) => setNewMat((p) => ({ ...p, defaultRate: e.target.value }))}
+                          placeholder="0"
                           min={0}
                         />
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="flex gap-2">
+                      <button onClick={handleCreateMaterial} disabled={creatingMat} className="btn-primary text-xs py-2">
+                        {creatingMat ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        Add & Use
+                      </button>
+                      <button onClick={() => setShowNewMaterial(false)} className="btn-secondary text-xs py-2">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
 
-              {presentCount > 0 && (
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-700">
-                  <span className="text-sm text-gray-500 dark:text-slate-400">Labour Total</span>
-                  <span className="font-display font-bold text-gray-900 dark:text-white">{formatCurrency(totals.labour)}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Material Section ─────────────────────────────────────── */}
-          {activeSection === 'material' && (
-            <div className="space-y-4">
-              {/* Quick-add from catalogue */}
-              <div className="card">
-                <p className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-3">Add from Catalogue</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {materials.map(mat => (
-                    <button
-                      key={mat.id}
-                      onClick={() => addMaterial(mat)}
-                      disabled={!!materialEntries.find(e => e.materialId === mat.id)}
-                      className={cn(
-                        'p-2.5 rounded-xl border text-left text-xs transition-all',
-                        materialEntries.find(e => e.materialId === mat.id)
-                          ? 'border-primary-200 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 cursor-default'
-                          : 'border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-primary-300 dark:hover:border-primary-600 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 cursor-pointer'
-                      )}
-                    >
-                      <p className="font-semibold text-gray-800 dark:text-slate-200 truncate">{mat.name}</p>
-                      <p className="text-gray-400 dark:text-slate-500 mt-0.5">{mat.unit} · ₹{mat.defaultRate}</p>
-                    </button>
-                  ))}
-                </div>
+                {/* Catalogue tiles */}
+                {!showMaterialDropdown && !showNewMaterial && allMaterials.length > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-400 dark:text-slate-500 mb-2">Catalogue</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {allMaterials.map((mat) => {
+                        const added = !!materialEntries.find((e) => e.materialId === mat.id)
+                        return (
+                          <button
+                            key={mat.id}
+                            onClick={() => addMaterial(mat)}
+                            disabled={added}
+                            className={cn(
+                              'p-2.5 rounded-xl border text-left text-xs transition-all',
+                              added
+                                ? 'border-primary-200 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 text-primary-500 cursor-default'
+                                : 'border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-primary-300 hover:bg-primary-50/30'
+                            )}
+                          >
+                            <p className="font-semibold text-gray-800 dark:text-slate-200 truncate">{mat.name}</p>
+                            <p className="text-gray-400 dark:text-slate-500 mt-0.5">
+                              {mat.unit} · {formatCurrency(mat.defaultRate)}
+                            </p>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Added materials */}
+              {/* Added materials list */}
               {materialEntries.length > 0 && (
                 <div className="card space-y-3">
                   <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">Added Materials</p>
                   {materialEntries.map((entry, idx) => (
                     <div key={entry.materialId} className="p-3 rounded-xl bg-gray-50 dark:bg-slate-700/50 space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
+                        <div>
                           <p className="text-sm font-medium text-gray-800 dark:text-slate-200">{entry.name}</p>
-                          <p className="text-xs text-gray-400 dark:text-slate-500">{entry.unit}</p>
+                          <p className="text-xs text-gray-400">{entry.unit}</p>
                         </div>
-                        <button onClick={() => removeMaterial(idx)} className="p-1 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded flex-shrink-0">
+                        <button
+                          onClick={() => setMaterialEntries((p) => p.filter((_, i) => i !== idx))}
+                          className="p-1 text-gray-300 hover:text-red-500 rounded"
+                        >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          placeholder="Qty"
-                          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
-                          value={entry.quantity}
-                          onChange={e => updateMaterial(idx, 'quantity', parseFloat(e.target.value) || 0)}
-                          min={0}
-                        />
-                        <span className="text-gray-300 dark:text-slate-600 text-xs flex-shrink-0">×</span>
-                        <input
-                          type="number"
-                          placeholder="Rate"
-                          className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm text-right dark:text-slate-200"
-                          value={entry.rate}
-                          onChange={e => updateMaterial(idx, 'rate', parseFloat(e.target.value) || 0)}
-                          min={0}
-                        />
-                        <span className="text-xs text-gray-500 dark:text-slate-400 font-semibold tabular-nums flex-shrink-0">
-                          {formatCurrency(entry.quantity * entry.rate)}
-                        </span>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-400 uppercase tracking-wide">
+                            Qty ({entry.unit})
+                          </label>
+                          <input
+                            type="number"
+                            className="input py-1.5 text-sm text-right"
+                            value={entry.quantity}
+                            onChange={(e) => updateMaterial(idx, 'quantity', parseFloat(e.target.value) || 0)}
+                            min={0}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-400 uppercase tracking-wide">Rate (₹)</label>
+                          <input
+                            type="number"
+                            className="input py-1.5 text-sm text-right"
+                            value={entry.rate}
+                            onChange={(e) => updateMaterial(idx, 'rate', parseFloat(e.target.value) || 0)}
+                            min={0}
+                          />
+                        </div>
+                        <div className="flex-1 text-right">
+                          <label className="text-[10px] text-gray-400 uppercase tracking-wide">Total</label>
+                          <p className="text-sm font-bold text-gray-700 dark:text-slate-200 mt-1.5">
+                            {formatCurrency(entry.quantity * entry.rate)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   ))}
-                  <div className="flex justify-between pt-2 border-t border-gray-100 dark:border-slate-700">
-                    <span className="text-sm text-gray-500 dark:text-slate-400">Material Total</span>
-                    <span className="font-display font-bold text-gray-900 dark:text-white">{formatCurrency(totals.material)}</span>
+                  <div className="flex justify-between pt-1 border-t border-gray-100 dark:border-slate-700">
+                    <span className="text-sm text-gray-500">Material Total</span>
+                    <span className="font-display font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(totals.material)}
+                    </span>
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── Other Expenses ────────────────────────────────────────── */}
+          {/* ── OTHER EXPENSES ──────────────────────────────────────────── */}
           {activeSection === 'other' && (
-            <div className="card space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">Other Expenses</p>
-                <button onClick={addOther} className="btn-secondary text-xs py-1.5 px-3">
-                  <Plus className="w-3.5 h-3.5" /> Add
-                </button>
+            <div className="space-y-3">
+              {/* Quick tiles */}
+              <div className="card">
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  <p className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                    Quick Add
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {QUICK_ADD_TILES.map((tile) => (
+                    <button
+                      key={tile.label}
+                      onClick={() => addQuickTile(tile.category, tile.defaultAmount)}
+                      className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-amber-300 hover:bg-amber-50/50 dark:hover:bg-amber-900/10 transition-all text-center group"
+                    >
+                      <span className="text-lg">{tile.emoji}</span>
+                      <span className="text-xs font-medium text-gray-700 dark:text-slate-300 group-hover:text-amber-700 dark:group-hover:text-amber-400">
+                        {tile.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {otherEntries.length === 0 ? (
-                <p className="text-sm text-gray-400 dark:text-slate-500 py-4 text-center">
-                  No other expenses. Click "Add" to add transport, fuel, etc.
-                </p>
-              ) : (
-                <>
-                  {otherEntries.map((entry, idx) => (
-                    <div key={idx} className="rounded-xl bg-gray-50 dark:bg-slate-700/50 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="input flex-1 py-2 text-sm"
-                          value={entry.category}
-                          onChange={e => updateOther(idx, 'category', e.target.value)}
-                        >
-                          {OTHER_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                        </select>
+              {/* Expense entries */}
+              <div className="card space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-slate-300">Expenses</p>
+                  <button onClick={addOther} className="btn-secondary text-xs py-1.5 px-3">
+                    <Plus className="w-3.5 h-3.5" /> Add
+                  </button>
+                </div>
+
+                {otherEntries.length === 0 ? (
+                  <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-4">
+                    Use quick-add above or click "Add" for custom expenses.
+                  </p>
+                ) : (
+                  <>
+                    {otherEntries.map((entry, idx) => (
+                      <div key={idx} className="rounded-xl bg-gray-50 dark:bg-slate-700/50 p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <select
+                            className="input flex-1 py-2 text-sm"
+                            value={entry.category}
+                            onChange={(e) => updateOther(idx, 'category', e.target.value)}
+                          >
+                            {allCategories.map((c) => (
+                              <option key={c}>{c}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            className="input w-28 py-2 text-right text-sm flex-shrink-0"
+                            placeholder="₹ Amount"
+                            value={entry.amount || ''}
+                            onChange={(e) => updateOther(idx, 'amount', parseFloat(e.target.value) || 0)}
+                            min={0}
+                          />
+                          <button
+                            onClick={() => setOtherEntries((p) => p.filter((_, i) => i !== idx))}
+                            className="p-2 text-gray-300 hover:text-red-500 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
                         <input
-                          type="number"
-                          className="input w-28 py-2 text-right text-sm flex-shrink-0"
-                          placeholder="Amount"
-                          value={entry.amount || ''}
-                          onChange={e => updateOther(idx, 'amount', parseFloat(e.target.value) || 0)}
-                          min={0}
+                          className="input py-2 text-sm w-full"
+                          placeholder="Description (e.g. Tea for workers, Petrol Vengadamangalam)"
+                          value={entry.description}
+                          onChange={(e) => updateOther(idx, 'description', e.target.value)}
                         />
-                        <button onClick={() => removeOther(idx)} className="p-2 text-gray-300 dark:text-slate-600 hover:text-red-500 rounded flex-shrink-0">
-                          <X className="w-4 h-4" />
-                        </button>
                       </div>
-                      <input
-                        className="input py-2 text-sm w-full"
-                        placeholder="Description (optional)"
-                        value={entry.description}
-                        onChange={e => updateOther(idx, 'description', e.target.value)}
-                      />
+                    ))}
+                    <div className="flex justify-between pt-1 border-t border-gray-100 dark:border-slate-700">
+                      <span className="text-sm text-gray-500">Other Total</span>
+                      <span className="font-display font-bold text-gray-900 dark:text-white">
+                        {formatCurrency(totals.other)}
+                      </span>
                     </div>
-                  ))}
-                  <div className="flex justify-between pt-2 border-t border-gray-100 dark:border-slate-700">
-                    <span className="text-sm text-gray-500 dark:text-slate-400">Other Total</span>
-                    <span className="font-display font-bold text-gray-900 dark:text-white">{formatCurrency(totals.other)}</span>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+
+                {/* Add custom category */}
+                <div className="pt-2 border-t border-dashed border-gray-200 dark:border-slate-600">
+                  {!showAddCategory ? (
+                    <button
+                      onClick={() => setShowAddCategory(true)}
+                      className="text-xs text-primary-500 hover:text-primary-600 font-medium flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add custom category
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="input flex-1 py-2 text-sm"
+                        placeholder="New category name..."
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAddCategory()
+                          if (e.key === 'Escape') setShowAddCategory(false)
+                        }}
+                        autoFocus
+                      />
+                      <button onClick={handleAddCategory} disabled={addingCategory} className="btn-primary text-xs py-2 px-3">
+                        {addingCategory ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Save'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAddCategory(false)
+                          setNewCategoryName('')
+                        }}
+                        className="btn-secondary text-xs py-2 px-2"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -531,20 +667,17 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
               className="input resize-none"
               rows={2}
               value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Any remarks or special notes for today..."
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Any site remarks for this day..."
             />
           </div>
 
-          {/* ── Summary Preview ─────────────────────────────────────── */}
+          {/* Summary */}
           <div className="card border-primary-100 dark:border-primary-800">
-            <button
-              onClick={() => setShowSummary(!showSummary)}
-              className="w-full flex items-center justify-between"
-            >
+            <button onClick={() => setShowSummary(!showSummary)} className="w-full flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Eye className="w-4 h-4 text-primary-500" />
-                <span className="font-semibold text-gray-900 dark:text-white">Daily Summary</span>
+                <span className="font-semibold text-gray-900 dark:text-white">Summary</span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-display font-bold text-primary-600 dark:text-primary-400 text-lg">
@@ -553,38 +686,39 @@ export function DailyEntryForm({ sites, labours, materials, defaultSiteId, defau
                 <ChevronDown className={cn('w-4 h-4 text-gray-400 transition-transform', showSummary && 'rotate-180')} />
               </div>
             </button>
-
             {showSummary && (
               <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-700 space-y-2.5">
-                {[
-                  { label: `Labour (${presentCount} workers)`, value: totals.labour, color: 'text-primary-600 dark:text-primary-400' },
-                  { label: `Materials (${materialEntries.length} items)`, value: totals.material, color: 'text-emerald-600 dark:text-emerald-400' },
-                  { label: `Other Expenses (${otherEntries.length})`, value: totals.other, color: 'text-amber-600 dark:text-amber-400' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500 dark:text-slate-400">{label}</span>
-                    <span className={cn('font-semibold tabular-nums', color)}>{formatCurrency(value)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-slate-700 text-base font-bold">
-                  <span className="text-gray-900 dark:text-white">Grand Total</span>
-                  <span className="text-primary-600 dark:text-primary-400 font-display">{formatCurrency(totals.grand)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Materials ({materialEntries.length} items)</span>
+                  <span className="font-semibold text-emerald-600">{formatCurrency(totals.material)}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Other Expenses ({otherEntries.length})</span>
+                  <span className="font-semibold text-amber-600">{formatCurrency(totals.other)}</span>
+                </div>
+                {storedAdvanceCount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">
+                      Labour Advances ({storedAdvanceCount}) <span className="text-xs text-gray-400">— manage in Labour page</span>
+                    </span>
+                    <span className="font-semibold text-orange-600">{formatCurrency(storedAdvanceTotal)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-100 dark:border-slate-700">
+                  <span className="text-gray-900 dark:text-white">Grand Total (excl. unpaid wages)</span>
+                  <span className="text-primary-600 font-display">{formatCurrency(totals.grand)}</span>
+                </div>
+                <p className="text-xs text-gray-400 dark:text-slate-500">
+                  Unpaid wages are added to the total when salary is paid via Labour → Payments.
+                </p>
               </div>
             )}
           </div>
 
-          {/* Submit */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="btn-primary flex-1 justify-center py-3 text-base"
-            >
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-              {existingRecord ? 'Update Record' : 'Save Daily Record'}
-            </button>
-          </div>
+          <button onClick={handleSubmit} disabled={saving} className="btn-primary w-full justify-center py-3 text-base">
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+            {existingRecord ? 'Update Expenses' : 'Save Expenses'}
+          </button>
         </>
       )}
     </div>

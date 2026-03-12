@@ -48,10 +48,11 @@ export function SiteTabs({ site, isAdmin, allUsers = [] }: SiteTabsProps) {
 }
 
 function OverviewTab({ site }: { site: any }) {
-  const totalLabour = site.dailyRecords.reduce((s: number, r: any) => s + r.totalLabour, 0)
-  const totalMaterial = site.dailyRecords.reduce((s: number, r: any) => s + r.totalMaterial, 0)
-  const totalOther = site.dailyRecords.reduce((s: number, r: any) => s + r.totalOther, 0)
-  const grand = totalLabour + totalMaterial + totalOther
+  // Use pre-aggregated totals from getSiteById — covers ALL records, not just the last 50.
+  const totalLabour   = site.totalLabour   ?? site.dailyRecords.reduce((s: number, r: any) => s + r.totalLabour, 0)
+  const totalMaterial = site.totalMaterial ?? site.dailyRecords.reduce((s: number, r: any) => s + r.totalMaterial, 0)
+  const totalOther    = site.totalOther    ?? site.dailyRecords.reduce((s: number, r: any) => s + r.totalOther, 0)
+  const grand = site.totalSpent ?? (totalLabour + totalMaterial + totalOther)
 
   return (
     <div className="space-y-4">
@@ -161,7 +162,8 @@ function BudgetTab({ site, isAdmin }: { site: any; isAdmin: boolean }) {
   const activeBudget = site.budgetEntries
     .filter((b: any) => !b.isVoided)
     .reduce((s: number, b: any) => s + b.amount, 0)
-  const totalSpent = site.dailyRecords.reduce((s: number, r: any) => s + r.grandTotal, 0)
+  // Use the pre-aggregated totalSpent from getSiteById (covers ALL records, not just last 50)
+  const totalSpent = site.totalSpent ?? site.dailyRecords.reduce((s: number, r: any) => s + r.grandTotal, 0)
   const remaining = activeBudget - totalSpent
   const pct = activeBudget > 0 ? Math.min((totalSpent / activeBudget) * 100, 100) : 0
 

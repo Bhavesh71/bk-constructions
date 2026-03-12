@@ -1,46 +1,61 @@
 import { getLabours } from '@/actions/labour'
+import { getActiveSites } from '@/actions/sites'   // BUG-5 FIX: was getSites (returned all sites)
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { formatCurrency } from '@/lib/utils'
-import { Users, CheckCircle, XCircle, TrendingUp } from 'lucide-react'
+import { Users, Wallet, CreditCard, CalendarCheck } from 'lucide-react'
 import { LabourManagement } from '@/components/labour/LabourManagement'
 
 export default async function LabourPage() {
-  const [labours, session] = await Promise.all([getLabours(), getServerSession(authOptions)])
+  const [labours, sites, session] = await Promise.all([
+    getLabours(),
+    getActiveSites(),   // BUG-5 FIX: only active sites in attendance dropdown
+    getServerSession(authOptions),
+  ])
   const isAdmin = session?.user?.role === 'ADMIN'
 
-  const activeCount = labours.filter(l => l.active).length
-  const totalEarnings = labours.reduce((s, l) => s + l.totalEarnings, 0)
+  const activeCount = labours.filter((l) => l.active).length
+  const totalPaid = labours.reduce((s, l) => s + l.totalEarnings, 0)
+  const totalPendingAdvance = labours.reduce((s, l) => s + l.pendingAdvance, 0)
+  const totalUnpaidWage = labours.filter((l) => l.active).reduce((s, l) => s + l.unpaidWage, 0)
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Labour Management</h2>
-          <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Manage your workforce and track earnings</p>
-        </div>
+      <div>
+        <h2 className="font-display font-bold text-gray-900 dark:text-white text-2xl">Labour Management</h2>
+        <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">
+          Track attendance, manage advances, and pay weekly salaries
+        </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="kpi-card">
-          <Users className="w-8 h-8 text-primary-500 mb-1" />
-          <p className="kpi-value">{labours.length}</p>
-          <p className="kpi-label">Total Workers</p>
-        </div>
-        <div className="kpi-card">
-          <CheckCircle className="w-8 h-8 text-green-500 mb-1" />
+          <Users className="w-7 h-7 text-primary-500 mb-1" />
           <p className="kpi-value">{activeCount}</p>
-          <p className="kpi-label">Active</p>
+          <p className="kpi-label">Active Workers</p>
         </div>
-        <div className="kpi-card col-span-2 sm:col-span-1">
-          <TrendingUp className="w-8 h-8 text-amber-500 mb-1" />
-          <p className="kpi-value">{formatCurrency(totalEarnings)}</p>
+        <div className="kpi-card">
+          <CalendarCheck className="w-7 h-7 text-blue-500 mb-1" />
+          <p className="kpi-value">{formatCurrency(totalUnpaidWage)}</p>
+          <p className="kpi-label">Wages Due</p>
+        </div>
+        <div className="kpi-card">
+          <Wallet className="w-7 h-7 text-emerald-500 mb-1" />
+          <p className="kpi-value">{formatCurrency(totalPaid)}</p>
           <p className="kpi-label">Total Paid</p>
         </div>
+        <div className="kpi-card">
+          <CreditCard className="w-7 h-7 text-red-400 mb-1" />
+          <p className="kpi-value">{formatCurrency(totalPendingAdvance)}</p>
+          <p className="kpi-label">Advances Pending</p>
+        </div>
       </div>
 
-      <LabourManagement labours={labours as any} isAdmin={isAdmin} />
+      <LabourManagement
+        labours={labours as any}
+        sites={sites.map((s) => ({ id: s.id, name: s.name, location: s.location })) as any}
+        isAdmin={isAdmin}
+      />
     </div>
   )
 }

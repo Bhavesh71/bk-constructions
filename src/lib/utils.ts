@@ -17,17 +17,40 @@ export function formatNumber(num: number): string {
   return new Intl.NumberFormat('en-IN').format(num)
 }
 
+// ─── Safe date parsing ─────────────────────────────────────────────────────
+// Always interprets "YYYY-MM-DD" as LOCAL time (not UTC midnight).
+// Avoids the IST/Windows off-by-one-day bug where new Date("2026-03-11")
+// gives 2026-03-10T18:30:00Z in IST.
+export function parseLocalDate(dateStr: string | Date): Date {
+  // Prisma returns @db.Date fields as native Date objects — pass through directly.
+  // String "YYYY-MM-DD" is parsed as UTC midnight so it matches how Prisma stores
+  // @db.Date values (PostgreSQL uses UTC date component). This keeps all date
+  // comparisons consistent across storage, filtering and display.
+  if (dateStr instanceof Date) return dateStr
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d))
+}
+
 export function formatDate(date: Date | string): string {
+  // If it's a plain YYYY-MM-DD string, parse locally to avoid IST shift
+  const d = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? parseLocalDate(date)
+    : new Date(date)
   return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(date))
+  }).format(d)
 }
 
 export function formatDateInput(date: Date | string): string {
-  const d = new Date(date)
-  return d.toISOString().split('T')[0]
+  const d = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? parseLocalDate(date)
+    : new Date(date)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 export function getInitials(name: string): string {

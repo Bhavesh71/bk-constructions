@@ -88,3 +88,20 @@ export async function deleteMaterial(id: string): Promise<ActionResponse> {
     return { success: false, error: error.message || 'Failed to delete material' }
   }
 }
+
+// ─── Quick-create material from Daily Entry (any logged-in user) ────────────
+export async function quickCreateMaterial(data: unknown): Promise<ActionResponse<{ id: string; name: string; unit: string; defaultRate: number; category: string }>> {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) return { success: false, error: 'Unauthorized' }
+
+    const parsed = materialSchema.parse(data)
+    const material = await prisma.material.create({ data: parsed })
+
+    revalidatePath('/materials')
+    revalidatePath('/daily-entry')
+    return { success: true, data: material }
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Failed to create material' }
+  }
+}

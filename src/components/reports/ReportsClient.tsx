@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, parseLocalDate } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts'
 import { Download, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -32,8 +32,8 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
     setPage(1)
     return records.filter((r) => {
       if (siteFilter && r.siteId !== siteFilter) return false
-      if (dateFrom && new Date(r.date) < new Date(dateFrom)) return false
-      if (dateTo && new Date(r.date) > new Date(dateTo)) return false
+      if (dateFrom && parseLocalDate(r.date) < parseLocalDate(dateFrom)) return false
+      if (dateTo && parseLocalDate(r.date) > parseLocalDate(dateTo)) return false
       return true
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,7 +74,7 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
   function exportCSV() {
     const headers = ['Date', 'Site', 'Labour', 'Material', 'Other', 'Total', 'Recorded By']
     const rows = filtered.map(r => [
-      new Date(r.date).toLocaleDateString('en-IN'),
+      parseLocalDate(r.date).toLocaleDateString('en-IN'),
       r.site.name,
       r.totalLabour,
       r.totalMaterial,
