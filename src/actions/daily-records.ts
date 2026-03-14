@@ -243,10 +243,29 @@ export async function saveAttendance(data: unknown): Promise<ActionResponse<{ id
         where: { dailyRecordId: rec.id, isPaid: false },
       })
 
-      // Create entries only for present workers
-      if (presentEntries.length > 0) {
+      // Fetch workers who already have a PAID entry on this record.
+      // We must NOT create a new unpaid entry for them — doing so would cause
+      // double-counting when recordWeeklySalary picks up the new unpaid entry.
+      const alreadyPaid = await tx.labourEntry.findMany({
+        where: { dailyRecordId: rec.id, isPaid: true },
+        select: { labourId: true },
+      })
+      const paidLabourIds = new Set(alreadyPaid.map((e) => e.labourId))
+
+      // Create entries only for present workers who are NOT already paid for this day.
+      // Also deduplicate by labourId — guards against double-submit / React double-render
+      // sending the same worker twice (no DB unique constraint exists to catch this).
+      const seen = new Set<string>()
+      const entriesToCreate = presentEntries.filter((e) => {
+        if (paidLabourIds.has(e.labourId)) return false  // already paid — skip
+        if (seen.has(e.labourId))          return false  // duplicate in input — skip
+        seen.add(e.labourId)
+        return true
+      })
+
+      if (entriesToCreate.length > 0) {
         await tx.labourEntry.createMany({
-          data: presentEntries.map((e) => ({
+          data: entriesToCreate.map((e) => ({
             dailyRecordId: rec!.id,
             labourId:      e.labourId,
             present:       true,
@@ -254,6 +273,7 @@ export async function saveAttendance(data: unknown): Promise<ActionResponse<{ id
             cost:          e.rate,
             isPaid:        false,
           })),
+          skipDuplicates: true,  // DB-level safety net
         })
       }
 
