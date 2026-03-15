@@ -39,7 +39,7 @@ export function KPICard({ label, value, icon: Icon, gradient, change, changeType
       <div>
         <p className="kpi-label">{label}</p>
         <p className="kpi-value">{displayValue}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="kpi-sub mt-0.5">{subtitle}</p>}
       </div>
     </div>
   )

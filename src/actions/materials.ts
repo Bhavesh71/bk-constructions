@@ -80,6 +80,12 @@ export async function deleteMaterial(id: string): Promise<ActionResponse> {
       return { success: false, error: 'Unauthorized' }
     }
 
+    // Guard: prevent deletion if material is referenced in any daily records
+    const usageCount = await prisma.materialEntry.count({ where: { materialId: id } })
+    if (usageCount > 0) {
+      return { success: false, error: `Cannot delete — this material is used in ${usageCount} daily record${usageCount !== 1 ? 's' : ''}` }
+    }
+
     await prisma.material.delete({ where: { id } })
 
     revalidatePath('/materials')

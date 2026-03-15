@@ -114,6 +114,11 @@ export async function getSiteById(id: string) {
 
   if (!site) throw new Error('Site not found')
 
+  // Supervisors can only view sites they are assigned to
+  const isAdmin = session.user.role === 'ADMIN'
+  const isAssigned = site.assignedUsers.some((su: any) => su.userId === session.user.id)
+  if (!isAdmin && !isAssigned) throw new Error('Access denied')
+
   const totalBudget = site.budgetEntries
     .filter((b) => !b.isVoided)
     .reduce((sum, b) => sum + b.amount, 0)

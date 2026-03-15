@@ -127,8 +127,17 @@ export default async function DashboardPage() {
           </div>
           <div className="progress-bar">
             <div
-              className={`progress-fill ${budgetPct >= 100 ? 'bg-red-500' : budgetPct >= 85 ? 'bg-orange-500' : budgetPct >= 70 ? 'bg-yellow-500' : 'bg-green-500'}`}
-              style={{ width: `${Math.min(100, budgetPct)}%` }}
+              className="progress-fill"
+              style={{
+                width: `${Math.min(100, budgetPct)}%`,
+                background: budgetPct >= 100
+                  ? '#ef4444'
+                  : budgetPct >= 85
+                  ? '#f97316'
+                  : budgetPct >= 70
+                  ? '#eab308'
+                  : 'linear-gradient(90deg, var(--brand) 0%, var(--brand-light) 100%)',
+              }}
             />
           </div>
           <div className="flex justify-between text-xs text-gray-400 dark:text-slate-500">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   Plus, Loader2, TrendingDown, TrendingUp, UserPlus, UserMinus,
@@ -26,23 +26,38 @@ export function SiteTabs({ site, isAdmin, allUsers = [] }: SiteTabsProps) {
     ? ['Overview', 'Daily Records', 'Budget', 'Team']
     : ['Overview', 'Daily Records', 'Budget']
   const [activeTab, setActiveTab] = useState('Overview')
+  const [tabLoading, setTabLoading] = useState(false)
+
+  function switchTab(tab: string) {
+    if (tab === activeTab) return
+    setTabLoading(true)
+    setActiveTab(tab)
+    setTimeout(() => setTabLoading(false), 300)
+  }
 
   return (
     <div>
       <div className="overflow-x-auto -mx-1 px-1 pb-1">
         <div className="flex gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-xl w-fit mb-6">
           {tabs.map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className={cn('tab-btn whitespace-nowrap', activeTab === tab && 'active')}>
+            <button key={tab} onClick={() => switchTab(tab)} className={cn('tab-btn whitespace-nowrap', activeTab === tab && 'active')}>
               {tab}
             </button>
           ))}
         </div>
       </div>
 
-      {activeTab === 'Overview' && <OverviewTab site={site} />}
-      {activeTab === 'Daily Records' && <DailyRecordsTab site={site} />}
-      {activeTab === 'Budget' && <BudgetTab site={site} isAdmin={isAdmin} />}
-      {activeTab === 'Team' && isAdmin && <TeamTab site={site} allUsers={allUsers} />}
+      {tabLoading && (
+        <div className="w-full h-0.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden mb-1 -mt-5">
+          <div className="h-full bg-primary-500 rounded-full animate-loading-bar" />
+        </div>
+      )}
+      <div className={cn('transition-opacity duration-150', tabLoading ? 'opacity-30 pointer-events-none select-none' : 'opacity-100 animate-tab-fade-in')}>
+        {activeTab === 'Overview' && <OverviewTab site={site} />}
+        {activeTab === 'Daily Records' && <DailyRecordsTab site={site} />}
+        {activeTab === 'Budget' && <BudgetTab site={site} isAdmin={isAdmin} />}
+        {activeTab === 'Team' && isAdmin && <TeamTab site={site} allUsers={allUsers} />}
+      </div>
     </div>
   )
 }

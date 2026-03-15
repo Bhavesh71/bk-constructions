@@ -219,7 +219,11 @@ export async function addLabourAdvance(data: unknown): Promise<ActionResponse> {
     })
     if (!labour) return { success: false, error: 'Worker not found' }
 
-    if (parsed.siteId && parsed.date) {
+    if (!parsed.siteId || !parsed.date) {
+      return { success: false, error: 'Site and date are required to record an advance' }
+    }
+
+    {
       const dateObj = safeDate(parsed.date)
 
       await prisma.$transaction(async (tx) => {
@@ -273,11 +277,6 @@ export async function addLabourAdvance(data: unknown): Promise<ActionResponse> {
           },
         })
       }, { timeout: 15000 })
-    } else {
-      // No site/date context — advance without expense linkage
-      await prisma.labourAdvance.create({
-        data: { labourId: parsed.labourId, amount: parsed.amount, reason: parsed.reason },
-      })
     }
 
     revalidatePath('/labour')

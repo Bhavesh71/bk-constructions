@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { formatCurrency, formatDate, parseLocalDate } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from 'recharts'
 import { Download, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -8,13 +8,22 @@ import toast from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 
 interface Site { id: string; name: string }
+interface OtherExpense { category: string; amount: number }
 interface Record {
   id: string; siteId: string; date: string; totalLabour: number; totalMaterial: number; totalOther: number; grandTotal: number
-  site: { name: string }; createdBy: { name: string }
+  site: { name: string }; createdBy: { name: string }; otherExpenses: OtherExpense[]
 }
 
 const COLORS = ['#4F46E5', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6']
 const PAGE_SIZE = 50
+
+const TOOLTIP_STYLE = {
+  background: 'var(--surface-2)',
+  border: '1px solid var(--border-base)',
+  borderRadius: '10px',
+  color: 'var(--text-primary)',
+  fontSize: '12px',
+}
 
 const formatInr = (v: number) => {
   if (v >= 100000) return `₹${(v / 100000).toFixed(1)}L`
@@ -29,7 +38,6 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
   const [page, setPage] = useState(1)
 
   const filtered = useMemo(() => {
-    setPage(1)
     return records.filter((r) => {
       if (siteFilter && r.siteId !== siteFilter) return false
       if (dateFrom && parseLocalDate(r.date) < parseLocalDate(dateFrom)) return false
@@ -39,12 +47,22 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [records, siteFilter, dateFrom, dateTo])
 
-  const totals = useMemo(() => ({
-    labour: filtered.reduce((s, r) => s + r.totalLabour, 0),
-    material: filtered.reduce((s, r) => s + r.totalMaterial, 0),
-    other: filtered.reduce((s, r) => s + r.totalOther, 0),
-    grand: filtered.reduce((s, r) => s + r.grandTotal, 0),
-  }), [filtered])
+  // Reset to page 1 when filters change — must not call setState during useMemo
+  useEffect(() => { setPage(1) }, [siteFilter, dateFrom, dateTo])
+
+  const totals = useMemo(() => {
+    let labour = 0, material = 0, other = 0, grand = 0
+    for (const r of filtered) {
+      const advInOther = r.otherExpenses
+        .filter(e => e.category === 'Advance')
+        .reduce((s, e) => s + e.amount, 0)
+      labour   += r.totalLabour + advInOther
+      material += r.totalMaterial
+      other    += r.totalOther  - advInOther
+      grand    += r.grandTotal
+    }
+    return { labour, material, other, grand }
+  }, [filtered])
 
   const pieData = [
     { name: 'Labour', value: totals.labour },
@@ -56,13 +74,16 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
   const siteBreakdown = useMemo(() => {
     const map = new Map<string, { name: string; labour: number; material: number; other: number; total: number }>()
     for (const r of filtered) {
+      const advInOther = r.otherExpenses
+        .filter(e => e.category === 'Advance')
+        .reduce((s, e) => s + e.amount, 0)
       const existing = map.get(r.siteId) || { name: r.site.name, labour: 0, material: 0, other: 0, total: 0 }
       map.set(r.siteId, {
         name: r.site.name.length > 12 ? r.site.name.substring(0, 12) + '…' : r.site.name,
-        labour: existing.labour + r.totalLabour,
+        labour:   existing.labour   + r.totalLabour + advInOther,
         material: existing.material + r.totalMaterial,
-        other: existing.other + r.totalOther,
-        total: existing.total + r.grandTotal,
+        other:    existing.other    + r.totalOther  - advInOther,
+        total:    existing.total    + r.grandTotal,
       })
     }
     return Array.from(map.values())
@@ -73,15 +94,20 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
 
   function exportCSV() {
     const headers = ['Date', 'Site', 'Labour', 'Material', 'Other', 'Total', 'Recorded By']
-    const rows = filtered.map(r => [
-      parseLocalDate(r.date).toLocaleDateString('en-IN'),
-      r.site.name,
-      r.totalLabour,
-      r.totalMaterial,
-      r.totalOther,
-      r.grandTotal,
-      r.createdBy.name,
-    ])
+    const rows = filtered.map(r => {
+      const advInOther = r.otherExpenses
+        .filter(e => e.category === 'Advance')
+        .reduce((s, e) => s + e.amount, 0)
+      return [
+        parseLocalDate(r.date).toLocaleDateString('en-IN'),
+        r.site.name,
+        r.totalLabour + advInOther,
+        r.totalMaterial,
+        r.totalOther - advInOther,
+        r.grandTotal,
+        r.createdBy.name,
+      ]
+    })
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -199,12 +225,17 @@ export function ReportsClient({ sites, records }: { sites: Site[]; records: Reco
               ) : (
                 paginated.map((r) => (
                   <tr key={r.id}>
-                    <td className="text-gray-500 dark:text-slate-400 text-sm">{formatDate(r.date)}</td>
-                    <td className="font-medium text-gray-800 dark:text-slate-200">{r.site.name}</td>
-                    <td className="hidden sm:table-cell text-financial">{formatCurrency(r.totalLabour)}</td>
-                    <td className="hidden sm:table-cell text-financial">{formatCurrency(r.totalMaterial)}</td>
-                    <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalOther)}</td>
-                    <td className="font-bold text-financial text-gray-900 dark:text-white">{formatCurrency(r.grandTotal)}</td>
+                    {(() => {
+                      const advInOther = r.otherExpenses.filter(e => e.category === 'Advance').reduce((s, e) => s + e.amount, 0)
+                      return (<>
+                        <td className="text-gray-500 dark:text-slate-400 text-sm">{formatDate(r.date)}</td>
+                        <td className="font-medium text-gray-800 dark:text-slate-200">{r.site.name}</td>
+                        <td className="hidden sm:table-cell text-financial">{formatCurrency(r.totalLabour + advInOther)}</td>
+                        <td className="hidden sm:table-cell text-financial">{formatCurrency(r.totalMaterial)}</td>
+                        <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalOther - advInOther)}</td>
+                        <td className="font-bold text-financial text-gray-900 dark:text-white">{formatCurrency(r.grandTotal)}</td>
+                      </>)
+                    })()}
                   </tr>
                 ))
               )}

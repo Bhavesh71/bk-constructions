@@ -16,6 +16,7 @@ import {
 import { saveAttendance } from '@/actions/daily-records'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
+import { Portal } from '@/components/layout/Portal'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 interface Labour {
@@ -35,6 +36,7 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
   const [editAmount, setEditAmount] = useState('')
   const [editReason, setEditReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     getLabourAdvancesAll(labour.id)
@@ -64,7 +66,6 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
   }
 
   async function handleDelete(id: string, amount: number) {
-    if (!confirm(`Delete advance of ${formatCurrency(amount)}? This cannot be undone.`)) return
     const res = await deleteLabourAdvance(id)
     if (res.success) {
       setAdvances((prev) => prev.filter((a) => a.id !== id))
@@ -79,18 +80,25 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
   const settled = advances.filter((a) => a.isSettled)
 
   return (
+    <Portal>
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-        {/* Sticky header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
-          <div>
-            <h3 className="font-display font-bold text-gray-900 dark:text-white">Advance History</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{labour.name}</p>
+      <div className="modal-box max-w-md w-full" onClick={(e) => e.stopPropagation()}
+        role="dialog" aria-modal="true" aria-labelledby="adv-hist-title">
+        {/* Header */}
+        <div className="modal-header">
+          <div className="flex items-center gap-2.5">
+            <div className="icon-box-primary w-8 h-8">
+              <History className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 id="adv-hist-title" className="modal-title">Advance History</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{labour.name}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-            <X className="w-4 h-4 text-gray-400" />
-          </button>
+          <button onClick={onClose} className="btn-icon"><X className="w-4 h-4" /></button>
         </div>
+        {/* fake placeholder to preserve structure */}
+        <div style={{display:'none'}}>placeholder</div>
 
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary-500" /></div>
@@ -99,10 +107,10 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
             <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
               <History className="w-5 h-5 text-gray-300 dark:text-slate-600" />
             </div>
-            <p className="text-sm text-gray-400">No advances recorded for {labour.name}</p>
+            <p className="text-sm text-gray-400 dark:text-slate-400">No advances recorded for {labour.name}</p>
           </div>
         ) : (
-          <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
+          <div className="overflow-y-auto flex-1 px-6 pt-5 pb-6 space-y-4">
             {pending.length > 0 && (
               <div>
                 <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-2">
@@ -115,12 +123,12 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
                         <div className="space-y-2">
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[10px] text-gray-400 uppercase">Amount (₹)</label>
+                              <label className="text-[10px] text-gray-400 dark:text-slate-400 uppercase">Amount (₹)</label>
                               <input className="input py-1.5 text-sm" type="number" value={editAmount}
                                 onChange={(e) => setEditAmount(e.target.value)} autoFocus />
                             </div>
                             <div>
-                              <label className="text-[10px] text-gray-400 uppercase">Reason</label>
+                              <label className="text-[10px] text-gray-400 dark:text-slate-400 uppercase">Reason</label>
                               <input className="input py-1.5 text-sm" value={editReason}
                                 onChange={(e) => setEditReason(e.target.value)} placeholder="Optional" />
                             </div>
@@ -138,7 +146,7 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
                           <div>
                             <p className="font-bold text-red-600 dark:text-red-400">{formatCurrency(adv.amount)}</p>
                             {adv.reason && <p className="text-xs text-gray-500 mt-0.5">{adv.reason}</p>}
-                            <p className="text-xs text-gray-400 mt-0.5">{new Date(adv.createdAt).toLocaleDateString('en-IN')}</p>
+                            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{new Date(adv.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                             {adv.dailyRecord && (
                               <p className="text-xs text-blue-400 mt-0.5 flex items-center gap-1">
                                 <Calendar className="w-2.5 h-2.5" />
@@ -151,10 +159,19 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
                               className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-400 hover:text-gray-700 transition-colors" title="Edit">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => handleDelete(adv.id, adv.amount)}
-                              className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {pendingDeleteId === adv.id ? (
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => { handleDelete(adv.id, adv.amount); setPendingDeleteId(null) }}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors">Yes</button>
+                                <button onClick={() => setPendingDeleteId(null)}
+                                  className="text-[10px] font-bold px-2 py-1 rounded-lg bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-slate-300 hover:bg-gray-300 transition-colors">No</button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setPendingDeleteId(adv.id)}
+                                className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       )}
@@ -166,16 +183,16 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
 
             {settled.length > 0 && (
               <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-2">
                   Settled ({settled.length}) · {formatCurrency(settled.reduce((s, a) => s + a.amount, 0))}
                 </p>
                 {settled.map((adv) => (
                   <div key={adv.id} className="rounded-xl border border-gray-100 dark:border-slate-700 p-3 opacity-60 mb-2">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-semibold text-gray-500 line-through">{formatCurrency(adv.amount)}</p>
+                        <p className="font-semibold text-gray-400 dark:text-slate-500 line-through">{formatCurrency(adv.amount)}</p>
                         {adv.reason && <p className="text-xs text-gray-400">{adv.reason}</p>}
-                        <p className="text-xs text-gray-400">{new Date(adv.createdAt).toLocaleDateString('en-IN')}</p>
+                        <p className="text-xs text-gray-400">{new Date(adv.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                         {adv.dailyRecord && (
                           <p className="text-xs text-gray-400 mt-0.5">
                             {adv.dailyRecord.site?.name}
@@ -194,6 +211,7 @@ function AdvanceHistoryModal({ labour, onClose }: { labour: Labour; onClose: () 
         )}
       </div>
     </div>
+    </Portal>
   )
 }
 
@@ -229,102 +247,111 @@ function GiveAdvanceModal({ labour, sites, onClose }: { labour: Labour; sites: S
   }
 
   return (
+    <Portal>
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box p-6 space-y-4 max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-display font-bold text-gray-900 dark:text-white">Give Advance</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
-            <X className="w-4 h-4 text-gray-400" />
-          </button>
+      <div className="modal-box max-w-sm" onClick={(e) => e.stopPropagation()}
+        role="dialog" aria-modal="true" aria-labelledby="give-adv-title">
+
+        {/* Clean header using design tokens */}
+        <div className="modal-header">
+          <div className="flex items-center gap-2.5">
+            <div className="icon-box-amber w-8 h-8 flex items-center justify-center">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 id="give-adv-title" className="modal-title">Give Advance</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {labour.name}
+                {labour.pendingAdvance > 0 && (
+                  <span className="ml-2 badge badge-red">
+                    ₹{labour.pendingAdvance.toLocaleString('en-IN')} pending
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="btn-icon"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl">
-          <CreditCard className="w-4 h-4 text-orange-500 flex-shrink-0" />
-          <div className="text-sm text-orange-700 dark:text-orange-300">
-            <span className="font-semibold">{labour.name}</span>
-            <span className="text-xs ml-1">· Daily wage: {formatCurrency(labour.dailyWage)}</span>
-            {labour.pendingAdvance > 0 && (
-              <p className="text-xs mt-0.5">Existing pending advance: <span className="font-bold">{formatCurrency(labour.pendingAdvance)}</span></p>
+        {/* Body — all fields are proper children of the padded wrapper */}
+        <div className="px-6 py-5 space-y-4">
+
+          <div>
+            <label className="label">Advance Amount (₹) *</label>
+            <input className="input" type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter amount" min={1} autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
+            {parseFloat(amount) > 0 && parseFloat(amount) > labour.dailyWage && (
+              <div className="mt-2 flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                    Advance exceeds daily wage ({formatCurrency(labour.dailyWage)})
+                  </p>
+                  {parseFloat(amount) > labour.dailyWage * 7 ? (
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
+                      This is more than a week's pay — make sure this is intentional.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
+                      Equivalent to {(parseFloat(amount) / labour.dailyWage).toFixed(1)} days of work. Proceed if approved.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            {parseFloat(amount) > 0 && (labour.pendingAdvance + parseFloat(amount)) > labour.dailyWage * 6 && (
+              <p className="text-[10px] text-red-500 dark:text-red-400 mt-1.5 font-medium">
+                ⚠ Total pending advances ({formatCurrency(labour.pendingAdvance + parseFloat(amount))}) will exceed 6 days of wages.
+              </p>
             )}
           </div>
-        </div>
 
-        <div>
-          <label className="label">Advance Amount (₹) *</label>
-          <input className="input" type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-            placeholder="Enter amount" min={1} autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && handleSave()} />
-          {/* Smart warning: advance > daily wage */}
-          {parseFloat(amount) > 0 && parseFloat(amount) > labour.dailyWage && (
-            <div className="mt-2 flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <label className="label">Reason (optional)</label>
+            <input className="input" value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Medical, Personal, Festival" />
+          </div>
+
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 space-y-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Info className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Recorded to daily spending immediately — impacts budget & totals</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-                  Advance exceeds daily wage ({formatCurrency(labour.dailyWage)})
-                </p>
-                {parseFloat(amount) > labour.dailyWage * 7 ? (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
-                    This is more than a week's pay — make sure this is intentional.
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
-                    Equivalent to {(parseFloat(amount) / labour.dailyWage).toFixed(1)} days of work. Proceed if approved.
-                  </p>
-                )}
+                <label className="text-[10px] text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Site *</label>
+                <select className="input py-1.5 text-sm" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+                  {sites.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Date *</label>
+                <input
+                  className="input py-1.5 text-sm"
+                  type="date"
+                  value={date}
+                  max={today}
+                  onChange={(e) => setDate(e.target.value)}
+                />
               </div>
             </div>
-          )}
-          {/* Warning: existing advance + new one > week's wage */}
-          {parseFloat(amount) > 0 && (labour.pendingAdvance + parseFloat(amount)) > labour.dailyWage * 6 && (
-            <p className="text-[10px] text-red-500 mt-1.5 font-medium">
-              ⚠ Total pending advances ({formatCurrency(labour.pendingAdvance + parseFloat(amount))}) will exceed 6 days of wages.
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="label">Reason (optional)</label>
-          <input className="input" value={reason} onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g. Medical, Personal, Festival" />
-        </div>
-
-        {/* Site + Date — always recorded as expense so it hits budget immediately */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 space-y-2">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Info className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-            <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Recorded to daily spending immediately — impacts budget & totals</p>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="text-[10px] text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Site *</label>
-              <select className="input py-1.5 text-sm" value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[10px] text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Date *</label>
-              <input
-                className="input py-1.5 text-sm"
-                type="date"
-                value={date}
-                max={today}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
 
-        <div className="flex gap-2 pt-1">
-          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 justify-center">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Record Advance
-          </button>
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 justify-center py-2.5">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Record Advance
+            </button>
+            <button onClick={onClose} className="btn-secondary px-4">Cancel</button>
+          </div>
+
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
 
@@ -380,37 +407,45 @@ function PayModal({ labour, onClose }: { labour: Labour; onClose: () => void }) 
   }
 
   return (
+    <Portal>
     <div className="modal-overlay" onClick={onClose}>
-      {/* Proper sticky header + scrollable body + sticky footer architecture */}
-      <div className="modal-box max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-box max-w-md w-full" onClick={(e) => e.stopPropagation()}
+        role="dialog" aria-modal="true" aria-labelledby="pay-modal-title">
 
-        {/* ── Sticky Header ─────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0">
-          <div>
-            <h3 className="font-display font-bold text-gray-900 dark:text-white text-lg leading-tight">Pay Worker</h3>
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{labour.name} · {labour.designation}</p>
+        {/* Clean header using design tokens */}
+        <div className="modal-header">
+          <div className="flex items-center gap-2.5">
+            <div className="icon-box-emerald w-8 h-8 flex items-center justify-center">
+              <Wallet className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 id="pay-modal-title" className="modal-title">Pay Worker</h3>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {labour.name}
+                <span style={{ color: 'var(--border-heavy)' }} className="mx-1.5">·</span>
+                {labour.designation}
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0 ml-4">
-            <X className="w-4 h-4 text-gray-400" />
-          </button>
+          <button onClick={onClose} className="btn-icon"><X className="w-4 h-4" /></button>
         </div>
 
-        {/* ── Scrollable Body ───────────────────────────────────── */}
+        {/* Scrollable Body */}
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <Loader2 className="w-7 h-7 animate-spin text-primary-500" />
-              <p className="text-sm text-gray-400">Loading payment data...</p>
+              <p className="text-sm text-gray-400 dark:text-slate-400">Loading payment data...</p>
             </div>
           ) : !weekData ? (
-            <p className="text-center text-gray-400 py-6">Failed to load data</p>
+            <p className="text-center text-gray-400 dark:text-slate-400 py-6">Failed to load data</p>
           ) : (
             <>
               {/* ── Attendance Summary ─── */}
               <div className="bg-gray-50 dark:bg-slate-700/50 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <CalendarCheck className="w-3.5 h-3.5 text-gray-400" />
-                  <p className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Unpaid Attendance</p>
+                  <CalendarCheck className="w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
+                  <p className="text-xs font-bold text-gray-400 dark:text-slate-500 dark:text-slate-500 uppercase tracking-wider">Unpaid Attendance</p>
                 </div>
                 {weekData.daysWorked === 0 ? (
                   <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 rounded-xl px-3 py-2.5">
@@ -423,13 +458,13 @@ function PayModal({ labour, onClose }: { labour: Labour; onClose: () => void }) 
                   <>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-white dark:bg-slate-800 rounded-xl p-3">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Days Present</p>
+                        <p className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Days Present</p>
                         <p className="font-display font-bold text-3xl text-gray-900 dark:text-white leading-none">
                           {weekData.daysWorked}
                         </p>
                       </div>
                       <div className="bg-white dark:bg-slate-800 rounded-xl p-3">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Gross Wage</p>
+                        <p className="text-[10px] text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Gross Wage</p>
                         <p className="font-display font-bold text-xl text-emerald-600 dark:text-emerald-400 leading-none tabular-nums">
                           {formatCurrency(weekData.totalWage)}
                         </p>
@@ -487,7 +522,7 @@ function PayModal({ labour, onClose }: { labour: Labour; onClose: () => void }) 
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-gray-800 dark:text-slate-200">{formatCurrency(adv.amount)}</p>
-                        {adv.reason && <p className="text-xs text-gray-400 truncate">{adv.reason}</p>}
+                        {adv.reason && <p className="text-xs text-gray-400 dark:text-slate-400 truncate">{adv.reason}</p>}
                         <p className="text-[10px] text-gray-400 dark:text-slate-500">
                           {new Date(adv.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
@@ -570,6 +605,7 @@ function PayModal({ labour, onClose }: { labour: Labour; onClose: () => void }) 
         )}
       </div>
     </div>
+    </Portal>
   )
 }
 
@@ -607,7 +643,7 @@ function AttendancePanel({ sites }: { sites: Site[] }) {
     setEntries((prev) =>
       prev.map((e) => {
         if (e.labourId !== labourId) return e
-        if (e.isPaid) return e  // cannot untick already-paid entries
+        if (e.isPaid) return e  // cannot untick already-paid entries — show visual hint via opacity
         return { ...e, present: !e.present }
       })
     )
@@ -689,7 +725,7 @@ function AttendancePanel({ sites }: { sites: Site[] }) {
           <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
         </div>
       ) : entries.length === 0 ? (
-        <div className="card text-center py-10 text-gray-400">
+        <div className="card text-center py-10 text-gray-400 dark:text-slate-400">
           No active workers registered. Add workers in the Workers tab.
         </div>
       ) : (
@@ -812,7 +848,7 @@ function AttendanceRow({
         </span>
       )}
       <div className="flex items-center gap-1 flex-shrink-0">
-        <span className="text-xs text-gray-400">₹</span>
+        <span className="text-xs text-gray-400 dark:text-slate-500">₹</span>
         <input
           type="number"
           className={cn(
@@ -852,7 +888,7 @@ function PaymentsPanel({ labours }: { labours: Labour[] }) {
         <div className="card text-center py-10 space-y-2">
           <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto" />
           <p className="font-semibold text-gray-700 dark:text-slate-300">All workers are paid up!</p>
-          <p className="text-sm text-gray-400">No pending wages. Mark attendance in the Attendance tab.</p>
+          <p className="text-sm text-gray-400 dark:text-slate-400">No pending wages. Mark attendance in the Attendance tab.</p>
         </div>
       ) : (
         <div className="card p-0 overflow-hidden">
@@ -914,11 +950,11 @@ function PaymentsPanel({ labours }: { labours: Labour[] }) {
                 <tr key={l.id}>
                   <td>
                     <p className="font-medium text-gray-800 dark:text-slate-200 text-sm">{l.name}</p>
-                    <p className="text-xs text-gray-400">{l.designation}</p>
+                    <p className="text-xs text-gray-400 dark:text-slate-500">{l.designation}</p>
                   </td>
                   <td>
                     <p className="text-sm font-semibold">{l.thisWeekDays} days</p>
-                    <p className="text-xs text-gray-400">{formatCurrency(l.thisWeekWage)}</p>
+                    <p className="text-xs text-gray-400 dark:text-slate-500">{formatCurrency(l.thisWeekWage)}</p>
                   </td>
                   <td className="hidden sm:table-cell text-sm font-semibold tabular-nums text-gray-700 dark:text-slate-300">
                     {formatCurrency(l.totalEarnings)}
@@ -959,6 +995,7 @@ function WorkersPanel({ labours, sites, isAdmin }: { labours: Labour[]; sites: S
   const [filter, setFilter] = useState<'all' | 'REGULAR' | 'ONCALL'>('all')
   const [advanceHistoryLabour, setAdvanceHistoryLabour] = useState<Labour | null>(null)
   const [giveAdvanceLabour, setGiveAdvanceLabour] = useState<Labour | null>(null)
+  const [pendingDeactivateId, setPendingDeactivateId] = useState<string | null>(null)
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -998,7 +1035,6 @@ function WorkersPanel({ labours, sites, isAdmin }: { labours: Labour[]; sites: S
   }
 
   async function handleDeactivate(id: string, name: string) {
-    if (!confirm(`Deactivate ${name}? They won't appear in daily attendance.`)) return
     const result = await deleteLabour(id)
     if (result.success) { toast.success(`${name} deactivated`); router.refresh() }
     else toast.error(result.error || 'Failed')
@@ -1105,7 +1141,7 @@ function WorkersPanel({ labours, sites, isAdmin }: { labours: Labour[]; sites: S
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-10 text-gray-400">No workers found</td>
+                  <td colSpan={6} className="text-center py-10 text-gray-400 dark:text-slate-500">No workers found</td>
                 </tr>
               ) : (
                 filtered.map((l) => (
@@ -1176,11 +1212,20 @@ function WorkersPanel({ labours, sites, isAdmin }: { labours: Labour[]; sites: S
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
                             {l.active ? (
-                              <button onClick={() => handleDeactivate(l.id, l.name)}
+                              pendingDeactivateId === l.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => { handleDeactivate(l.id, l.name); setPendingDeactivateId(null) }}
+                                    className="text-[10px] font-bold px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600 transition-colors">Yes</button>
+                                  <button onClick={() => setPendingDeactivateId(null)}
+                                    className="text-[10px] font-bold px-2 py-1 rounded bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-slate-300 hover:bg-gray-300 transition-colors">No</button>
+                                </div>
+                              ) : (
+                              <button onClick={() => setPendingDeactivateId(l.id)}
                                 className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 transition-colors"
                                 title="Deactivate">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
+                              )
                             ) : (
                               <button onClick={() => handleReactivate(l.id, l.name)}
                                 className="p-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-gray-400 hover:text-emerald-600 transition-colors"
@@ -1221,6 +1266,15 @@ export function LabourManagement({
   isAdmin: boolean
 }) {
   const [tab, setTab] = useState<'workers' | 'attendance' | 'payments'>('workers')
+  const [tabLoading, setTabLoading] = useState(false)
+
+  function switchTab(id: 'workers' | 'attendance' | 'payments') {
+    if (id === tab) return
+    setTabLoading(true)
+    setTab(id)
+    // Brief delay so the spinner is visible before new content renders
+    setTimeout(() => setTabLoading(false), 350)
+  }
 
   const unpaidCount = labours.filter((l) => l.active && l.unpaidDays > 0).length
 
@@ -1236,7 +1290,7 @@ export function LabourManagement({
         {tabs.map(({ id, label, icon: Icon, badge }) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
+            onClick={() => switchTab(id)}
             className={cn('tab-btn flex items-center gap-1.5 whitespace-nowrap', tab === id && 'active')}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -1255,9 +1309,18 @@ export function LabourManagement({
         ))}
       </div>
 
-      {tab === 'workers' && <WorkersPanel labours={labours} sites={sites} isAdmin={isAdmin} />}
-      {tab === 'attendance' && <AttendancePanel sites={sites} />}
-      {tab === 'payments' && <PaymentsPanel labours={labours} />}
+      {/* Loading bar under tabs */}
+      {tabLoading && (
+        <div className="w-full h-0.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden -mt-2">
+          <div className="h-full bg-primary-500 rounded-full animate-loading-bar" />
+        </div>
+      )}
+
+      <div className={cn('transition-opacity duration-150', tabLoading ? 'opacity-30 pointer-events-none select-none' : 'opacity-100 animate-tab-fade-in')}>
+        {tab === 'workers' && <WorkersPanel labours={labours} sites={sites} isAdmin={isAdmin} />}
+        {tab === 'attendance' && <AttendancePanel sites={sites} />}
+        {tab === 'payments' && <PaymentsPanel labours={labours} />}
+      </div>
     </div>
   )
 }

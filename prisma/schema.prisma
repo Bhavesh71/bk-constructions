@@ -150,6 +150,9 @@ model LabourEntry {
   isPaid        Boolean     @default(false)
   paidAt        DateTime?
   createdAt     DateTime    @default(now())
+
+  // Prevents duplicate entries for the same worker on the same day
+  @@unique([dailyRecordId, labourId])
 }
 
 model LabourAdvance {

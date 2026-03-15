@@ -35,7 +35,7 @@ export default async function SitesPage() {
             const pct = site.totalBudget > 0 ? Math.min(100, (site.totalSpent / site.totalBudget) * 100) : 0
 
             return (
-              <div key={site.id} className="card hover:shadow-card-md transition-all duration-200 hover:-translate-y-0.5 group">
+              <div key={site.id} className="card transition-all duration-200 group">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1 min-w-0">
                     <Link href={`/sites/${site.id}`}>

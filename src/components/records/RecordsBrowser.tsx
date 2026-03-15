@@ -148,263 +148,185 @@ export function RecordsBrowser({ records, sites }: Props) {
   }
 
   function printRecords(theme: 'light' | 'dark') {
-    const siteName = siteFilter ? sites.find(s => s.id === siteFilter)?.name : 'All Sites'
-    const period = `${dateFrom || 'All'} to ${dateTo || 'All'}`
-    const isLight = theme === 'light'
+    const siteName    = siteFilter ? (sites.find(s => s.id === siteFilter)?.name ?? 'All Sites') : 'All Sites'
+    const periodFrom  = dateFrom ? new Date(dateFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'All time'
+    const periodTo    = dateTo   ? new Date(dateTo).toLocaleDateString('en-IN',   { day: 'numeric', month: 'short', year: 'numeric' }) : 'Present'
+    const generatedOn = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
 
-    // ── Theme tokens ──────────────────────────────────────────────────────
-    const t = isLight ? {
-      pageBg:       '#f8fafc',
-      cardBg:       '#ffffff',
-      cardBorder:   '#e2e8f0',
-      accent:       '#4F46E5',
-      accentLight:  '#eef2ff',
-      accentMuted:  '#6366f1',
-      text:         '#0f172a',
-      textMuted:    '#64748b',
-      textFaint:    '#94a3b8',
-      headerBg:     'linear-gradient(135deg,#4F46E5 0%,#6366f1 100%)',
-      headerText:   '#ffffff',
-      sectionBg:    '#f1f5f9',
-      sectionText:  '#475569',
-      rowAlt:       '#f8fafc',
-      rowBorder:    '#f1f5f9',
-      subtotalBg:   '#eef2ff',
-      subtotalText: '#3730a3',
-      paidBg:       '#f0fdf4', paidText: '#166534',
-      unpaidBg:     '#fff7ed', unpaidText:'#9a3412',
-      advBg:        '#fffbeb', advText:   '#92400e',
-      summaryHead:  'linear-gradient(135deg,#4F46E5,#6366f1)',
-      grandBg:      '#eef2ff', grandText: '#3730a3',
-      notesBg:      '#f8fafc', notesBorder:'#e2e8f0',
-      footerText:   '#94a3b8',
-      shadow:       '0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04)',
-    } : {
-      pageBg:       '#0f1117',
-      cardBg:       '#1a1d27',
-      cardBorder:   '#2d3148',
-      accent:       '#818cf8',
-      accentLight:  '#1e2040',
-      accentMuted:  '#a5b4fc',
-      text:         '#e2e8f0',
-      textMuted:    '#94a3b8',
-      textFaint:    '#475569',
-      headerBg:     'linear-gradient(135deg,#312e81 0%,#4338ca 100%)',
-      headerText:   '#e0e7ff',
-      sectionBg:    '#13151f',
-      sectionText:  '#64748b',
-      rowAlt:       '#1e2130',
-      rowBorder:    '#252838',
-      subtotalBg:   '#1e2040',
-      subtotalText: '#a5b4fc',
-      paidBg:       '#052e16', paidText: '#86efac',
-      unpaidBg:     '#431407', unpaidText:'#fdba74',
-      advBg:        '#2d2006', advText:   '#fcd34d',
-      summaryHead:  'linear-gradient(135deg,#312e81,#4338ca)',
-      grandBg:      '#1e2040', grandText: '#a5b4fc',
-      notesBg:      '#13151f', notesBorder:'#2d3148',
-      footerText:   '#475569',
-      shadow:       '0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3)',
+    const L = theme === 'light'
+
+    const C = {
+      pageBg:       L ? '#f4f6fb'  : '#0b0e17',
+      coverBg:      L ? '#1e1b4b'  : '#0f0e1a',
+      coverAccent:  L ? '#4338ca'  : '#312e81',
+      coverText:    L ? '#ffffff'  : '#e0e7ff',
+      coverSub:     L ? 'rgba(255,255,255,.55)' : 'rgba(180,170,255,.5)',
+      cardBg:       L ? '#ffffff'  : '#131926',
+      cardBorder:   L ? '#e2e8f0'  : '#1e2a3e',
+      secBg:        L ? '#f1f5f9'  : '#1a2235',
+      secText:      L ? '#475569'  : '#6b7fa0',
+      rowA:         L ? '#ffffff'  : '#131926',
+      rowB:         L ? '#f8fafc'  : '#171f30',
+      rowDivide:    L ? '#f1f5f9'  : '#1e2a3e',
+      primary:      L ? '#0f172a'  : '#dde4f0',
+      muted:        L ? '#64748b'  : '#7a90b0',
+      faint:        L ? '#94a3b8'  : '#3d5070',
+      indigo:       L ? '#4338ca'  : '#818cf8',
+      green:        L ? '#047857'  : '#34d399',
+      amber:        L ? '#b45309'  : '#fbbf24',
+      paidFg:       L ? '#166534'  : '#86efac',
+      paidBg:       L ? '#dcfce7'  : '#052e16',
+      unpaidFg:     L ? '#991b1b'  : '#fca5a5',
+      unpaidBg:     L ? '#fee2e2'  : '#3b0f0f',
+      advFg:        L ? '#78350f'  : '#fcd34d',
+      advBg:        L ? '#fef3c7'  : '#1c1100',
+      settledFg:    L ? '#166534'  : '#86efac',
+      settledBg:    L ? '#dcfce7'  : '#052e16',
+      totalsBg:     L ? '#eef2ff'  : '#181735',
+      totalsText:   L ? '#3730a3'  : '#a5b4fc',
+      footerBorder: L ? '#e2e8f0'  : '#1e2a3e',
+      footerText:   L ? '#94a3b8'  : '#3d5070',
     }
 
-    // ── Per-record HTML ───────────────────────────────────────────────────
-    const recordsHtml = filtered.map((r, ri) => {
-      const advanceInOther = r.otherExpenses
-        .filter(e => e.category === 'Advance')
-        .reduce((s, e) => s + e.amount, 0)
-      const labourDisplay  = r.totalLabour + advanceInOther
-      const otherDisplay   = r.totalOther  - advanceInOther
-      const presentEntries = r.labourEntries.filter(e => e.present)
+    const inr = (n: number) => `&#8377;${Math.round(n).toLocaleString('en-IN')}`
 
-      const badge = (text: string, bg: string, color: string) =>
-        `<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:700;padding:2px 7px;border-radius:999px;background:${bg};color:${color};text-transform:uppercase;letter-spacing:.04em">${text}</span>`
+    const pill = (label: string, bg: string, fg: string) =>
+      `<span style="display:inline-block;font-size:8px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:${bg};color:${fg}">${label}</span>`
 
-      const labourRows = presentEntries.map((e, i) => `
-        <tr style="background:${i % 2 === 0 ? t.cardBg : t.rowAlt}">
-          <td style="padding:7px 14px;color:${t.text};font-weight:600">${e.labour.name}</td>
-          <td style="padding:7px 14px;color:${t.textMuted};font-size:11px">${e.labour.designation}</td>
-          <td style="padding:7px 14px">${e.isPaid
-            ? badge('✓ Paid', t.paidBg, t.paidText)
-            : badge('⏳ Unpaid', t.unpaidBg, t.unpaidText)}</td>
-          <td style="padding:7px 14px;text-align:right;font-weight:700;color:${t.text};font-variant-numeric:tabular-nums">₹${e.cost.toLocaleString('en-IN')}</td>
-        </tr>`).join('')
+    const secHead = (icon: string, label: string, amt: number, color: string) =>
+      `<tr><td colspan="3" style="padding:7px 14px;background:${C.secBg};font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:${C.secText};border-top:2px solid ${C.cardBorder}">${icon}&nbsp;&nbsp;${label}</td><td style="padding:7px 14px;text-align:right;background:${C.secBg};font-size:11px;font-weight:800;color:${color};border-top:2px solid ${C.cardBorder};font-variant-numeric:tabular-nums">${inr(amt)}</td></tr>`
 
-      const advanceRows = r.labourAdvances.map((adv, i) => `
-        <tr style="background:${t.advBg}">
-          <td style="padding:7px 14px;color:${t.text};font-weight:600">${adv.labour.name}</td>
-          <td style="padding:7px 14px;color:${t.textMuted};font-size:11px">Advance${adv.reason ? ' — ' + adv.reason : ''}</td>
-          <td style="padding:7px 14px">${adv.isSettled
-            ? badge('✓ Settled', t.paidBg, t.paidText)
-            : badge('Pending', t.advBg, t.advText)}</td>
-          <td style="padding:7px 14px;text-align:right;font-weight:700;color:${t.advText};font-variant-numeric:tabular-nums">₹${adv.amount.toLocaleString('en-IN')}</td>
-        </tr>`).join('')
+    const subtotal = (label: string, amt: number, color: string) =>
+      `<tr><td colspan="3" style="padding:6px 14px 6px 24px;background:${C.totalsBg};font-size:9px;font-weight:700;color:${color}">&#8627; ${label}</td><td style="padding:6px 14px;text-align:right;background:${C.totalsBg};font-size:10px;font-weight:800;color:${color};font-variant-numeric:tabular-nums">${inr(amt)}</td></tr>`
 
-      const materialRows = r.materialEntries.map((e, i) => `
-        <tr style="background:${i % 2 === 0 ? t.cardBg : t.rowAlt}">
-          <td style="padding:7px 14px;color:${t.text};font-weight:600">${e.material.name}</td>
-          <td style="padding:7px 14px;color:${t.textMuted};font-size:11px">${e.material.category}</td>
-          <td style="padding:7px 14px;color:${t.textMuted};font-size:11px">${e.quantity} ${e.material.unit} × ₹${e.rate.toLocaleString('en-IN')}</td>
-          <td style="padding:7px 14px;text-align:right;font-weight:700;color:${t.text};font-variant-numeric:tabular-nums">₹${e.total.toLocaleString('en-IN')}</td>
-        </tr>`).join('')
+    const thead = (cols: Array<{l:string, r?:boolean}>) =>
+      `<tr>${cols.map(c => `<th style="padding:5px 14px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${C.faint};text-align:${c.r?'right':'left'};background:${C.secBg};border-bottom:1px solid ${C.cardBorder}">${c.l}</th>`).join('')}</tr>`
 
-      const otherRows = r.otherExpenses
-        .filter(e => e.category !== 'Advance')
-        .map((e, i) => `
-        <tr style="background:${i % 2 === 0 ? t.cardBg : t.rowAlt}">
-          <td style="padding:7px 14px;color:${t.text};font-weight:600">${e.category}</td>
-          <td style="padding:7px 14px;color:${t.textMuted};font-size:11px" colspan="2">${e.description || '—'}</td>
-          <td style="padding:7px 14px;text-align:right;font-weight:700;color:${t.text};font-variant-numeric:tabular-nums">₹${e.amount.toLocaleString('en-IN')}</td>
-        </tr>`).join('')
+    const td  = (v: string, bg: string, x = '') => `<td style="padding:6px 14px;font-size:10px;color:${C.primary};background:${bg};border-bottom:1px solid ${C.rowDivide};${x}">${v}</td>`
+    const tdM = (v: string, bg: string, x = '') => `<td style="padding:6px 14px;font-size:10px;color:${C.muted};background:${bg};border-bottom:1px solid ${C.rowDivide};${x}">${v}</td>`
+    const tdR = (v: string, bg: string, color: string) => `<td style="padding:6px 14px;font-size:10px;font-weight:700;text-align:right;color:${color};background:${bg};border-bottom:1px solid ${C.rowDivide};font-variant-numeric:tabular-nums">${v}</td>`
 
-      const sectionLabel = (icon: string, label: string, total: number, color: string) => `
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;background:${t.sectionBg};border-top:1px solid ${t.cardBorder};border-bottom:1px solid ${t.cardBorder}">
-          <span style="font-size:13px">${icon}</span>
-          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:${t.sectionText}">${label}</span>
-          <span style="margin-left:auto;font-size:12px;font-weight:800;color:${color};font-variant-numeric:tabular-nums">₹${total.toLocaleString('en-IN')}</span>
-        </div>`
+    const recordCards = filtered.map(r => {
+      const advAmt      = r.otherExpenses.filter(e => e.category === 'Advance').reduce((s, e) => s + e.amount, 0)
+      const labourTotal = r.totalLabour + advAmt
+      const otherTotal  = r.totalOther  - advAmt
+      const present     = r.labourEntries.filter(e => e.present)
+      const hasL        = present.length > 0 || r.labourAdvances.length > 0
+      const hasM        = r.materialEntries.length > 0
+      const otherExp    = r.otherExpenses.filter(e => e.category !== 'Advance')
+      const hasO        = otherExp.length > 0
 
-      const subtotalRow = (label: string, amount: number) => `
-        <tr style="background:${t.subtotalBg}">
-          <td colspan="3" style="padding:7px 14px;font-weight:700;font-size:11px;color:${t.subtotalText}">${label}</td>
-          <td style="padding:7px 14px;text-align:right;font-weight:800;color:${t.subtotalText};font-variant-numeric:tabular-nums">₹${amount.toLocaleString('en-IN')}</td>
-        </tr>`
+      const labourRows = present.map((e, i) => {
+        const bg = i % 2 === 0 ? C.rowA : C.rowB
+        return `<tr>${td(`<b>${e.labour.name}</b>`, bg)}${tdM(e.labour.designation, bg)}${td(e.isPaid ? pill('Paid', C.paidBg, C.paidFg) : pill('Unpaid', C.unpaidBg, C.unpaidFg), bg)}${tdR(inr(e.cost), bg, C.primary)}</tr>`
+      }).join('')
 
-      return `
-        <div style="background:${t.cardBg};border:1px solid ${t.cardBorder};border-radius:12px;margin-bottom:18px;overflow:hidden;box-shadow:${t.shadow};page-break-inside:avoid">
-          <!-- Day Header -->
-          <div style="background:${t.headerBg};padding:12px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:14px">📅</div>
-              <div>
-                <div style="font-weight:800;font-size:14px;color:${t.headerText}">${formatDate(r.date)}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,.7);margin-top:1px">${r.site.name} · ${r.site.location}</div>
-              </div>
-            </div>
-            <div style="margin-left:auto;text-align:right">
-              <div style="font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em">Grand Total</div>
-              <div style="font-size:18px;font-weight:900;color:#ffffff;font-variant-numeric:tabular-nums">₹${r.grandTotal.toLocaleString('en-IN')}</div>
-            </div>
-          </div>
+      const advRows = r.labourAdvances.map(adv => {
+        return `<tr>${td(`<b>${adv.labour.name}</b>`, C.advBg)}${tdM(`Advance${adv.reason ? ' \u2014 ' + adv.reason : ''}`, C.advBg)}${td(adv.isSettled ? pill('Settled', C.settledBg, C.settledFg) : pill('Pending', C.advBg, C.advFg), C.advBg)}${tdR(inr(adv.amount), C.advBg, C.amber)}</tr>`
+      }).join('')
 
-          <!-- Stat Pills -->
-          <div style="display:flex;gap:6px;padding:10px 14px;background:${t.accentLight};border-bottom:1px solid ${t.cardBorder};flex-wrap:wrap">
-            <div style="background:${t.cardBg};border:1px solid ${t.cardBorder};border-radius:8px;padding:5px 10px;text-align:center;min-width:70px">
-              <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:${t.textFaint};font-weight:700">Labour</div>
-              <div style="font-size:13px;font-weight:800;color:#6366f1;font-variant-numeric:tabular-nums">₹${labourDisplay.toLocaleString('en-IN')}</div>
-            </div>
-            <div style="background:${t.cardBg};border:1px solid ${t.cardBorder};border-radius:8px;padding:5px 10px;text-align:center;min-width:70px">
-              <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:${t.textFaint};font-weight:700">Material</div>
-              <div style="font-size:13px;font-weight:800;color:#10b981;font-variant-numeric:tabular-nums">₹${r.totalMaterial.toLocaleString('en-IN')}</div>
-            </div>
-            <div style="background:${t.cardBg};border:1px solid ${t.cardBorder};border-radius:8px;padding:5px 10px;text-align:center;min-width:70px">
-              <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:${t.textFaint};font-weight:700">Other</div>
-              <div style="font-size:13px;font-weight:800;color:#f59e0b;font-variant-numeric:tabular-nums">₹${otherDisplay.toLocaleString('en-IN')}</div>
-            </div>
-            ${r.notes ? `<div style="flex:1;background:${t.cardBg};border:1px solid ${t.cardBorder};border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:5px"><span style="font-size:10px">📝</span><span style="font-size:10px;color:${t.textMuted};font-style:italic">${r.notes}</span></div>` : ''}
-          </div>
+      const matRows = r.materialEntries.map((e, i) => {
+        const bg = i % 2 === 0 ? C.rowA : C.rowB
+        return `<tr>${td(`<b>${e.material.name}</b>`, bg)}${tdM(e.material.category, bg)}${tdM(`${e.quantity} ${e.material.unit} \u00d7 ${inr(e.rate)}`, bg)}${tdR(inr(e.total), bg, C.primary)}</tr>`
+      }).join('')
 
-          ${(presentEntries.length > 0 || r.labourAdvances.length > 0) ? `
-          ${sectionLabel('👷', 'Labour & Advances', labourDisplay, '#818cf8')}
-          <table style="width:100%;border-collapse:collapse">
-            <thead><tr style="background:${t.sectionBg}">
-              <th style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Name</th>
-              <th style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Designation</th>
-              <th style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Status</th>
-              <th style="padding:6px 14px;text-align:right;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Amount</th>
-            </tr></thead>
-            <tbody>${labourRows}${advanceRows}${subtotalRow('Labour + Advances Total', labourDisplay)}</tbody>
-          </table>` : ''}
+      const otherRows = otherExp.map((e, i) => {
+        const bg = i % 2 === 0 ? C.rowA : C.rowB
+        return `<tr>${td(`<b>${e.category}</b>`, bg)}${tdM(e.description || '\u2014', bg, 'colspan="2"')}${tdR(inr(e.amount), bg, C.primary)}</tr>`
+      }).join('')
 
-          ${r.materialEntries.length > 0 ? `
-          ${sectionLabel('🧱', 'Materials', r.totalMaterial, '#10b981')}
-          <table style="width:100%;border-collapse:collapse">
-            <thead><tr style="background:${t.sectionBg}">
-              <th style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Material</th>
-              <th style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Category</th>
-              <th style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Qty × Rate</th>
-              <th style="padding:6px 14px;text-align:right;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Amount</th>
-            </tr></thead>
-            <tbody>${materialRows}${subtotalRow('Material Total', r.totalMaterial)}</tbody>
-          </table>` : ''}
-
-          ${r.otherExpenses.filter(e => e.category !== 'Advance').length > 0 ? `
-          ${sectionLabel('💰', 'Other Expenses', otherDisplay, '#f59e0b')}
-          <table style="width:100%;border-collapse:collapse">
-            <thead><tr style="background:${t.sectionBg}">
-              <th style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Category</th>
-              <th colspan="2" style="padding:6px 14px;text-align:left;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Description</th>
-              <th style="padding:6px 14px;text-align:right;font-size:10px;font-weight:700;color:${t.textFaint};text-transform:uppercase;letter-spacing:.06em">Amount</th>
-            </tr></thead>
-            <tbody>${otherRows}${subtotalRow('Other Total', otherDisplay)}</tbody>
-          </table>` : ''}
-
-          <!-- Recorded by -->
-          <div style="padding:7px 14px;background:${t.sectionBg};border-top:1px solid ${t.cardBorder};font-size:10px;color:${t.textFaint}">
-            Recorded by <strong style="color:${t.textMuted}">${r.createdBy.name}</strong>
-          </div>
-        </div>`
+      return `<div style="background:${C.cardBg};border:1px solid ${C.cardBorder};border-radius:10px;overflow:hidden;margin-bottom:14px;page-break-inside:avoid">
+<table style="width:100%;border-collapse:collapse"><tr>
+<td style="padding:13px 16px;background:${C.coverAccent};vertical-align:middle">
+<div style="font-size:13px;font-weight:800;color:#fff;letter-spacing:-.01em">${formatDate(r.date)}</div>
+<div style="font-size:8.5px;color:rgba(255,255,255,.6);margin-top:3px">${r.site.name} \u00b7 ${r.site.location} \u00b7 ${r.createdBy.name}</div>
+</td>
+<td style="padding:13px 16px;background:${C.coverAccent};text-align:right;vertical-align:middle;white-space:nowrap">
+<div style="font-size:8px;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.55);margin-bottom:3px">Grand Total</div>
+<div style="font-size:22px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.03em">${inr(r.grandTotal)}</div>
+</td></tr></table>
+<table style="width:100%;border-collapse:collapse;border-bottom:1px solid ${C.cardBorder}"><tr>
+<td style="padding:8px 16px;width:33.3%;border-right:1px solid ${C.cardBorder}"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.08em;color:${C.faint};font-weight:700;margin-bottom:3px">Labour</div><div style="font-size:12px;font-weight:800;color:${C.indigo};font-variant-numeric:tabular-nums">${inr(labourTotal)}</div></td>
+<td style="padding:8px 16px;width:33.3%;border-right:1px solid ${C.cardBorder}"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.08em;color:${C.faint};font-weight:700;margin-bottom:3px">Material</div><div style="font-size:12px;font-weight:800;color:${C.green};font-variant-numeric:tabular-nums">${inr(r.totalMaterial)}</div></td>
+<td style="padding:8px 16px;width:33.4%"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.08em;color:${C.faint};font-weight:700;margin-bottom:3px">Other</div><div style="font-size:12px;font-weight:800;color:${C.amber};font-variant-numeric:tabular-nums">${inr(otherTotal)}</div></td>
+</tr></table>
+${hasL ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:24%"><col style="width:28%"><col style="width:18%"><col style="width:30%"></colgroup>${secHead('\u2692', 'Labour &amp; Advances', labourTotal, C.indigo)}${thead([{l:'Name'},{l:'Designation'},{l:'Status'},{l:'Amount',r:true}])}${labourRows}${advRows}${subtotal('Labour subtotal', labourTotal, C.indigo)}</table>` : ''}
+${hasM ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:28%"><col style="width:22%"><col style="width:24%"><col style="width:26%"></colgroup>${secHead('\u{1F9F1}', 'Materials', r.totalMaterial, C.green)}${thead([{l:'Material'},{l:'Category'},{l:'Qty \u00d7 Rate'},{l:'Amount',r:true}])}${matRows}${subtotal('Material subtotal', r.totalMaterial, C.green)}</table>` : ''}
+${hasO ? `<table style="width:100%;border-collapse:collapse;table-layout:fixed"><colgroup><col style="width:24%"><col style="width:46%"><col style="width:0%"><col style="width:30%"></colgroup>${secHead('\u{1F4B8}', 'Other Expenses', otherTotal, C.amber)}${thead([{l:'Category'},{l:'Description'},{l:''},{l:'Amount',r:true}])}${otherRows}${subtotal('Other subtotal', otherTotal, C.amber)}</table>` : ''}
+${r.notes ? `<div style="padding:7px 16px;background:${C.secBg};border-top:1px solid ${C.cardBorder};font-size:8.5px;font-style:italic;color:${C.muted}">\ud83d\udcdd\u00a0 ${r.notes}</div>` : ''}
+</div>`
     }).join('')
 
-    // ── Full HTML document ─────────────────────────────────────────────────
+    const summaryCard = `<div style="background:${C.cardBg};border:1px solid ${C.cardBorder};border-radius:10px;overflow:hidden;margin-bottom:20px">
+<table style="width:100%;border-collapse:collapse">
+<thead><tr style="background:${C.secBg}">
+<th style="padding:8px 14px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${C.faint};text-align:left;border-bottom:1px solid ${C.cardBorder}">Category</th>
+<th style="padding:8px 14px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${C.faint};text-align:right;border-bottom:1px solid ${C.cardBorder}">Amount</th>
+<th style="padding:8px 14px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${C.faint};text-align:right;border-bottom:1px solid ${C.cardBorder};width:70px">Records</th>
+</tr></thead>
+<tbody>
+<tr><td style="padding:10px 14px;font-size:11px;font-weight:600;color:${C.indigo};border-bottom:1px solid ${C.rowDivide}">Labour &amp; Advances</td><td style="padding:10px 14px;text-align:right;font-size:11px;font-weight:700;color:${C.indigo};border-bottom:1px solid ${C.rowDivide};font-variant-numeric:tabular-nums">${inr(totals.labour)}</td><td style="padding:10px 14px;text-align:right;font-size:10px;color:${C.muted};border-bottom:1px solid ${C.rowDivide}">${filtered.filter(r=>r.totalLabour>0||r.labourAdvances.length>0).length}</td></tr>
+<tr style="background:${C.rowB}"><td style="padding:10px 14px;font-size:11px;font-weight:600;color:${C.green};border-bottom:1px solid ${C.rowDivide}">Materials</td><td style="padding:10px 14px;text-align:right;font-size:11px;font-weight:700;color:${C.green};border-bottom:1px solid ${C.rowDivide};font-variant-numeric:tabular-nums">${inr(totals.material)}</td><td style="padding:10px 14px;text-align:right;font-size:10px;color:${C.muted};border-bottom:1px solid ${C.rowDivide}">${filtered.filter(r=>r.totalMaterial>0).length}</td></tr>
+<tr><td style="padding:10px 14px;font-size:11px;font-weight:600;color:${C.amber};border-bottom:1px solid ${C.rowDivide}">Other Expenses</td><td style="padding:10px 14px;text-align:right;font-size:11px;font-weight:700;color:${C.amber};border-bottom:1px solid ${C.rowDivide};font-variant-numeric:tabular-nums">${inr(totals.other)}</td><td style="padding:10px 14px;text-align:right;font-size:10px;color:${C.muted};border-bottom:1px solid ${C.rowDivide}">${filtered.filter(r=>r.totalOther>0).length}</td></tr>
+<tr style="background:${C.totalsBg}"><td style="padding:12px 14px;font-size:13px;font-weight:900;color:${C.totalsText};letter-spacing:-.01em">Grand Total</td><td style="padding:12px 14px;text-align:right;font-size:17px;font-weight:900;color:${C.totalsText};font-variant-numeric:tabular-nums;letter-spacing:-.02em">${inr(totals.grand)}</td><td style="padding:12px 14px;text-align:right;font-size:10px;font-weight:700;color:${C.totalsText}">${filtered.length}&nbsp;days</td></tr>
+</tbody></table></div>`
+
     const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <title>BK Constructions — Daily Records</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-    * { box-sizing:border-box; margin:0; padding:0; }
-    body { font-family:'Inter',Arial,sans-serif; font-size:12px; background:${t.pageBg}; color:${t.text}; padding:28px; }
-    @media print {
-      body { padding:0; background:${t.pageBg}; -webkit-print-color-adjust:exact; print-color-adjust:exact; color-adjust:exact; }
-      .no-print { display:none!important; }
-    }
-  </style>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BK Constructions \u2014 Expense Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap"/>
+<style>
+@page{size:A4 portrait;margin:14mm 12mm 16mm 12mm;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{font-family:'DM Sans',system-ui,sans-serif;font-size:11px;background:${C.pageBg};color:${C.primary};-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
+table{border-collapse:collapse;width:100%;}b{color:inherit;}
+@media screen{body{padding:32px;max-width:794px;margin:0 auto;}}
+@media print{body{padding:0;background:${C.pageBg}!important;}.no-print{display:none!important;}}
+</style>
 </head>
 <body>
-  <!-- Top Header -->
-  <div style="background:${t.headerBg};border-radius:16px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 4px 24px rgba(79,70,229,.3)">
-    <div>
-      <div style="font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-.01em">🏗️ BK Constructions</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:3px">Daily Expense Records</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-size:11px;color:rgba(255,255,255,.6)">${siteName} &nbsp;·&nbsp; ${period}</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">Generated ${new Date().toLocaleString('en-IN')} &nbsp;·&nbsp; ${filtered.length} record(s)</div>
-    </div>
-  </div>
-
-  <!-- Summary Cards -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
-    ${[
-      { label: 'Total Labour', value: totals.labour, icon: '👷', color: '#818cf8', bg: isLight ? '#eef2ff' : '#1e2040', border: isLight ? '#c7d2fe' : '#312e81' },
-      { label: 'Total Material', value: totals.material, icon: '🧱', color: '#10b981', bg: isLight ? '#ecfdf5' : '#052e16', border: isLight ? '#a7f3d0' : '#065f46' },
-      { label: 'Total Other', value: totals.other, icon: '💰', color: '#f59e0b', bg: isLight ? '#fffbeb' : '#2d2006', border: isLight ? '#fcd34d' : '#78350f' },
-      { label: 'Grand Total', value: totals.grand, icon: '📊', color: t.accentMuted, bg: t.accentLight, border: t.cardBorder },
-    ].map(s => `
-      <div style="background:${s.bg};border:1px solid ${s.border};border-radius:12px;padding:14px 16px;box-shadow:${t.shadow}">
-        <div style="font-size:18px;margin-bottom:6px">${s.icon}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:${t.textFaint};margin-bottom:4px">${s.label}</div>
-        <div style="font-size:20px;font-weight:900;color:${s.color};font-variant-numeric:tabular-nums">₹${s.value.toLocaleString('en-IN')}</div>
-      </div>`).join('')}
-  </div>
-
-  <!-- Day Records -->
-  ${recordsHtml}
-
-  <!-- Footer -->
-  <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid ${t.cardBorder}">
-    <p style="font-size:10px;color:${t.footerText}">BK Constructions &nbsp;·&nbsp; Printed on ${new Date().toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })} &nbsp;·&nbsp; Confidential</p>
-  </div>
-</body>
-</html>`
+<table style="margin-bottom:20px;border-radius:12px;overflow:hidden"><tr>
+<td style="background:${C.coverBg};padding:20px 22px;vertical-align:top;width:58%">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+<div style="width:36px;height:36px;background:${C.coverAccent};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">\ud83c\udfd7</div>
+<div><div style="font-size:15px;font-weight:800;color:${C.coverText};letter-spacing:-.02em;line-height:1.1">BK Constructions</div>
+<div style="font-size:8px;color:${C.coverSub};text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-top:2px">Daily Expense Report</div></div></div>
+<table style="border-collapse:collapse"><tr>
+<td style="padding-right:16px;vertical-align:top"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.09em;color:${C.coverSub};font-weight:700;margin-bottom:4px">Site</div><div style="font-size:11px;font-weight:700;color:${C.coverText}">${siteName}</div></td>
+<td style="padding-right:16px;vertical-align:top"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.09em;color:${C.coverSub};font-weight:700;margin-bottom:4px">Period</div><div style="font-size:10px;font-weight:600;color:${C.coverText}">${periodFrom} \u2014 ${periodTo}</div></td>
+<td style="vertical-align:top"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.09em;color:${C.coverSub};font-weight:700;margin-bottom:4px">Records</div><div style="font-size:11px;font-weight:700;color:${C.coverText}">${filtered.length}</div></td>
+</tr></table>
+</td>
+<td style="background:${C.coverAccent};padding:20px 22px;text-align:right;vertical-align:bottom">
+<div style="font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.5);margin-bottom:6px">Total Expenditure</div>
+<div style="font-size:28px;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1">${inr(totals.grand)}</div>
+<div style="margin-top:16px;display:flex;gap:12px;justify-content:flex-end">
+<div style="text-align:center"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.45);margin-bottom:3px">Labour</div><div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.85);font-variant-numeric:tabular-nums">${inr(totals.labour)}</div></div>
+<div style="width:1px;background:rgba(255,255,255,.15)"></div>
+<div style="text-align:center"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.45);margin-bottom:3px">Material</div><div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.85);font-variant-numeric:tabular-nums">${inr(totals.material)}</div></div>
+<div style="width:1px;background:rgba(255,255,255,.15)"></div>
+<div style="text-align:center"><div style="font-size:7.5px;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.45);margin-bottom:3px">Other</div><div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.85);font-variant-numeric:tabular-nums">${inr(totals.other)}</div></div>
+</div>
+</td></tr></table>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${C.faint}">Summary</div><div style="flex:1;height:1px;background:${C.cardBorder}"></div></div>
+${summaryCard}
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;margin-top:4px"><div style="font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${C.faint}">Daily Breakdown \u2014 ${filtered.length} Record${filtered.length !== 1 ? 's' : ''}</div><div style="flex:1;height:1px;background:${C.cardBorder}"></div></div>
+${recordCards}
+<table style="margin-top:8px;border-top:1px solid ${C.footerBorder}" class="no-print"><tr>
+<td style="padding:10px 0 0;font-size:8px;color:${C.footerText}">BK Constructions \u2014 Confidential \u2014 Internal use only</td>
+<td style="padding:10px 0 0;text-align:right;font-size:8px;color:${C.footerText}">${filtered.length} record(s) \u00b7 Printed ${generatedOn}</td>
+</tr></table>
+</body></html>`
 
     const w = window.open('', '_blank')
-    if (!w) { toast.error('Allow popups to print'); return }
+    if (!w) { toast.error('Allow popups to open the print preview'); return }
     w.document.write(html)
     w.document.close()
     w.focus()
-    setTimeout(() => { w.print() }, 600)
+    setTimeout(() => { w.print() }, 900)
   }
 
   async function exportExcel() {
@@ -582,7 +504,7 @@ export function RecordsBrowser({ records, sites }: Props) {
           <div className="flex gap-2">
             <button onClick={exportCSV}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 dark:text-slate-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">
-              <FileText className="w-3.5 h-3.5" /> CSV
+              <FileText className="w-3.5 h-3.5" /> <span>CSV</span>
             </button>
             <button onClick={exportExcel} disabled={exporting}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 transition-colors">
@@ -975,98 +897,79 @@ export function RecordsBrowser({ records, sites }: Props) {
 
       {/* ── Print Options Modal ─────────────────────────────────────── */}
       {printModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setPrintModalOpen(false)} />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(10px)' }} onClick={() => setPrintModalOpen(false)} />
+          <div className="relative w-full max-w-sm overflow-hidden animate-slide-up"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-base)', borderRadius: '20px', boxShadow: 'var(--shadow-xl)' }}
+            role="dialog" aria-modal="true" aria-labelledby="print-modal-title">
 
-          {/* Modal */}
-          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 w-full max-w-sm overflow-hidden">
-
-            {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-6 py-5">
+            <div style={{ background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)', padding: '20px 24px' }}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-                  <Printer className="w-4 h-4 text-white" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.18)' }}>
+                  <Printer className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Print Options</h3>
-                  <p className="text-xs text-indigo-200 mt-0.5">{filtered.length} record{filtered.length !== 1 ? 's' : ''} · Choose a theme</p>
+                  <h3 id="print-modal-title" className="text-sm font-bold text-white">Print / Download PDF</h3>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(199,210,254,0.75)' }}>
+                    {filtered.length} record{filtered.length !== 1 ? 's' : ''} &nbsp;&middot;&nbsp; A4 format
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Theme choices */}
             <div className="p-5 space-y-3">
-              {/* Light Theme */}
-              <button
-                onClick={() => { setPrintModalOpen(false); printRecords('light') }}
-                className="w-full group rounded-xl border-2 border-gray-200 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all overflow-hidden text-left"
-              >
-                {/* Mini preview */}
-                <div className="bg-gray-50 px-4 py-3 space-y-1.5">
-                  <div className="h-2.5 w-2/3 rounded-sm bg-indigo-400 opacity-80" />
-                  <div className="flex gap-1.5">
-                    {['bg-indigo-200','bg-emerald-200','bg-amber-200','bg-violet-200'].map(c => (
-                      <div key={c} className={`h-5 flex-1 rounded-md ${c}`} />
-                    ))}
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Choose a theme</p>
+
+              <button onClick={() => { setPrintModalOpen(false); printRecords('light') }}
+                className="w-full text-left rounded-xl overflow-hidden transition-all duration-150 group"
+                style={{ border: '1.5px solid var(--border-base)' }}>
+                <div style={{ background: '#f8fafc', padding: '12px 14px 10px' }}>
+                  <div style={{ height: '8px', width: '55%', borderRadius: '4px', background: '#4338ca', marginBottom: '7px' }} />
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '7px' }}>
+                    {['#e0e7ff','#dcfce7','#fef3c7','#fce7f3'].map(c =>
+                      <div key={c} style={{ height: '18px', flex: 1, borderRadius: '4px', background: c }} />
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <div className="h-1.5 w-full rounded-sm bg-gray-200" />
-                    <div className="h-1.5 w-5/6 rounded-sm bg-gray-200" />
-                    <div className="h-1.5 w-4/6 rounded-sm bg-gray-200" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {['100%','80%','65%'].map(w => <div key={w} style={{ height: '5px', borderRadius: '3px', background: '#e2e8f0', width: w }} />)}
                   </div>
                 </div>
-                <div className="px-4 py-2.5 flex items-center justify-between bg-white dark:bg-slate-800">
+                <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border-subtle)' }}>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 dark:text-slate-200">☀️ Light Theme</p>
-                    <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">Clean white background, ideal for printing on paper</p>
+                    <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>☀️ Light Theme</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>White background — ideal for printing on paper</p>
                   </div>
-                  <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronRight className="w-3.5 h-3.5 text-indigo-500" />
-                  </div>
+                  <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--brand)' }} />
                 </div>
               </button>
 
-              {/* Dark Theme */}
-              <button
-                onClick={() => { setPrintModalOpen(false); printRecords('dark') }}
-                className="w-full group rounded-xl border-2 border-gray-200 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all overflow-hidden text-left"
-              >
-                {/* Mini preview */}
-                <div className="bg-slate-900 px-4 py-3 space-y-1.5">
-                  <div className="h-2.5 w-2/3 rounded-sm bg-indigo-500 opacity-80" />
-                  <div className="flex gap-1.5">
-                    {['bg-indigo-900','bg-emerald-900','bg-amber-900','bg-violet-900'].map(c => (
-                      <div key={c} className={`h-5 flex-1 rounded-md ${c} border border-white/10`} />
-                    ))}
+              <button onClick={() => { setPrintModalOpen(false); printRecords('dark') }}
+                className="w-full text-left rounded-xl overflow-hidden transition-all duration-150 group"
+                style={{ border: '1.5px solid var(--border-base)' }}>
+                <div style={{ background: '#0d1117', padding: '12px 14px 10px' }}>
+                  <div style={{ height: '8px', width: '55%', borderRadius: '4px', background: '#4338ca', marginBottom: '7px' }} />
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '7px' }}>
+                    {['#1e1b4b','#052e16','#1c1402','#2d1b3d'].map(c =>
+                      <div key={c} style={{ height: '18px', flex: 1, borderRadius: '4px', background: c, border: '1px solid rgba(255,255,255,0.08)' }} />
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <div className="h-1.5 w-full rounded-sm bg-slate-700" />
-                    <div className="h-1.5 w-5/6 rounded-sm bg-slate-700" />
-                    <div className="h-1.5 w-4/6 rounded-sm bg-slate-700" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {['100%','80%','65%'].map(w => <div key={w} style={{ height: '5px', borderRadius: '3px', background: '#1f2937', width: w }} />)}
                   </div>
                 </div>
-                <div className="px-4 py-2.5 flex items-center justify-between bg-white dark:bg-slate-800">
+                <div className="flex items-center justify-between px-4 py-2.5" style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border-subtle)' }}>
                   <div>
-                    <p className="text-xs font-bold text-gray-700 dark:text-slate-200">🌙 Dark Theme</p>
-                    <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">Deep dark background, great for digital screens</p>
+                    <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>🌙 Dark Theme</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Deep dark — great for digital screens &amp; saving ink</p>
                   </div>
-                  <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronRight className="w-3.5 h-3.5 text-indigo-500" />
-                  </div>
+                  <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--brand)' }} />
                 </div>
               </button>
             </div>
 
-            {/* Footer */}
-            <div className="px-5 pb-4 flex items-center justify-between">
-              <p className="text-[10px] text-gray-400 dark:text-slate-500">Opens in a new tab then prompts print dialog</p>
-              <button
-                onClick={() => setPrintModalOpen(false)}
-                className="text-xs font-semibold text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition-colors"
-              >
-                Cancel
-              </button>
+            <div className="flex items-center justify-between px-5 pb-5" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Opens in new tab → print dialog → save as PDF</p>
+              <button onClick={() => setPrintModalOpen(false)} className="btn-ghost text-xs py-1.5 px-3">Cancel</button>
             </div>
           </div>
         </div>

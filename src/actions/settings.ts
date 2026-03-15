@@ -22,7 +22,7 @@ export async function changePassword(
     const valid = await bcrypt.compare(currentPassword, user.password)
     if (!valid) return { success: false, error: 'Current password is incorrect' }
 
-    if (newPassword.length < 6) return { success: false, error: 'New password must be at least 6 characters' }
+    if (newPassword.length < 8) return { success: false, error: 'New password must be at least 8 characters' }
 
     const hashed = await bcrypt.hash(newPassword, 12)
     await prisma.user.update({ where: { id: session.user.id }, data: { password: hashed } })

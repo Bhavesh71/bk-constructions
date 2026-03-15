@@ -50,6 +50,20 @@ const config: Config = {
         xl: '1rem',
         '2xl': '1.25rem',
       },
+      keyframes: {
+        'loading-bar': {
+          '0%':   { width: '0%',   opacity: '1' },
+          '100%': { width: '100%', opacity: '0.85' },
+        },
+        'tab-fade-in': {
+          '0%':   { opacity: '0', transform: 'translateY(4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'loading-bar': 'loading-bar 0.45s ease-out forwards',
+        'tab-fade-in': 'tab-fade-in 0.2s ease-out forwards',
+      },
     },
   },
   plugins: [],

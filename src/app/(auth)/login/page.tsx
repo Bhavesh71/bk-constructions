@@ -63,7 +63,7 @@ export default function LoginPage() {
             alt={BRAND.name}
             width={180}
             height={180}
-            // className="rounded-xl object-contain"
+            className="object-contain"
             priority
           />
           {/* <span className="font-display font-bold text-white text-xl">{BRAND.name}</span> */}
@@ -92,7 +92,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-start lg:items-center justify-center p-6 sm:p-8 bg-gray-50 dark:bg-slate-900 overflow-y-auto">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 overflow-y-auto" style={{ backgroundColor: 'var(--surface-0)' }}>
         <div className="w-full max-w-md">
           {/* Mobile header: big centered logo + brand name */}
           <div className="lg:hidden flex flex-col items-center text-center mb-8 gap-4">
@@ -145,7 +145,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">
+              <button type="submit" disabled={loading} className="btn-primary btn-primary--lg w-full justify-center">
                 {loading ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</>
                 ) : (

@@ -1,9 +1,9 @@
 import { getSites } from '@/actions/sites'
-import { getDailyRecords } from '@/actions/daily-records'
+import { getFullDailyRecords } from '@/actions/daily-records'
 import { ReportsClient } from '@/components/reports/ReportsClient'
 
 export default async function ReportsPage() {
-  const [sites, records] = await Promise.all([getSites(), getDailyRecords(undefined, 500)])
+  const [sites, records] = await Promise.all([getSites(), getFullDailyRecords({ limit: 1000 })])
 
   return (
     <div className="space-y-6">

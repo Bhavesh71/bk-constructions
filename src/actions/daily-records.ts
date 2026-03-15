@@ -196,6 +196,7 @@ export async function saveDailyRecord(data: unknown): Promise<ActionResponse<{ i
     revalidatePath(`/sites/${parsed.siteId}`)
     revalidatePath('/dashboard')
     revalidatePath('/records')
+    revalidatePath('/reports')
     return { success: true, data: record }
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to save daily record' }
@@ -282,6 +283,8 @@ export async function saveAttendance(data: unknown): Promise<ActionResponse<{ id
 
     revalidatePath('/labour')
     revalidatePath('/dashboard')
+    revalidatePath('/records')
+    revalidatePath('/reports')
     return { success: true, data: record }
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to save attendance' }
@@ -317,8 +320,10 @@ export async function deleteDailyRecord(id: string): Promise<ActionResponse> {
     const record = await prisma.dailyRecord.delete({ where: { id } })
     revalidatePath('/daily-entry')
     revalidatePath(`/sites/${record.siteId}`)
+    revalidatePath('/sites', 'layout')
     revalidatePath('/dashboard')
     revalidatePath('/records')
+    revalidatePath('/reports')
     return { success: true }
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to delete record' }

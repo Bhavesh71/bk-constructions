@@ -24,7 +24,7 @@ export function SupervisorSettingsClient({ user, assignedSites, totalRecordsCrea
   async function handlePasswordChange(e: React.FormEvent) {
     e.preventDefault()
     if (newPw !== confirmPw) { toast.error('Passwords do not match'); return }
-    if (newPw.length < 6) { toast.error('Password must be at least 6 characters'); return }
+    if (newPw.length < 8) { toast.error('Password must be at least 8 characters'); return }
     setPwLoading(true)
     try {
       const res = await changePassword(currentPw, newPw)
@@ -147,7 +147,7 @@ export function SupervisorSettingsClient({ user, assignedSites, totalRecordsCrea
           </div>
           <div>
             <label className="label">New Password</label>
-            <input className="input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required placeholder="Min. 6 characters" />
+            <input className="input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required placeholder="Min. 8 characters" />
           </div>
           <div>
             <label className="label">Confirm New Password</label>

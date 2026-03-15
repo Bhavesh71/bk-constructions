@@ -93,7 +93,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          <p className="px-3 mb-2 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Main</p>
+          <p className="sidebar-section-label mb-2">Main</p>
 
           {navItems.map(({ href, label, icon: Icon }) => (
             <Link
@@ -104,13 +104,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             >
               <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={isActive(href) ? 2.5 : 2} />
               <span className="flex-1">{label}</span>
-              {isActive(href) && <ChevronRight className="w-3.5 h-3.5 text-primary-400" />}
+              {isActive(href) && <ChevronRight className="w-3.5 h-3.5" />}
             </Link>
           ))}
 
           {isAdmin && (
             <>
-              <p className="px-3 mb-2 mt-4 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Admin</p>
+              <p className="sidebar-section-label mt-4 mb-2">Admin</p>
               {adminItems.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
@@ -120,7 +120,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 >
                   <Icon className="w-[18px] h-[18px] flex-shrink-0" />
                   <span className="flex-1">{label}</span>
-                  {isActive(href) && <ChevronRight className="w-3.5 h-3.5 text-primary-400" />}
+                  {isActive(href) && <ChevronRight className="w-3.5 h-3.5" />}
                 </Link>
               ))}
             </>

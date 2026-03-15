@@ -9,7 +9,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-surface dark:bg-slate-900 transition-colors duration-200">
+    <div className="min-h-screen transition-colors duration-200" style={{ backgroundColor: 'var(--surface-0)' }}>
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <TopNav onMenuClick={() => setSidebarOpen(true)} />
       <InactivityTimer />
