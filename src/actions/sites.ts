@@ -81,7 +81,7 @@ export async function getSiteById(id: string) {
   const session = await getServerSession(authOptions)
   if (!session) throw new Error('Unauthorized')
 
-  const [site, spentAgg] = await Promise.all([
+  const [site, spentAgg, advanceAgg] = await Promise.all([
     prisma.site.findUnique({
       where: { id },
       include: {
@@ -94,10 +94,14 @@ export async function getSiteById(id: string) {
           orderBy: { createdAt: 'desc' },
         },
         // Recent records for display — all records for totals handled separately
+        // Include otherExpenses so per-row advance reclassification works in DailyRecordsTab
         dailyRecords: {
           orderBy: { date: 'desc' },
           take: 50,
-          include: { createdBy: { select: { name: true } } },
+          include: {
+            createdBy: { select: { name: true } },
+            otherExpenses: { select: { category: true, amount: true } },
+          },
         },
         assignedUsers: {
           include: { user: { select: { id: true, name: true, email: true, role: true } } },
@@ -110,6 +114,11 @@ export async function getSiteById(id: string) {
       where: { siteId: id },
       _sum: { grandTotal: true, totalLabour: true, totalMaterial: true, totalOther: true },
     }),
+    // Sum ALL advance amounts across this site — to reclassify Other → Labour
+    prisma.otherExpense.aggregate({
+      where: { dailyRecord: { siteId: id }, category: 'Advance' },
+      _sum: { amount: true },
+    }),
   ])
 
   if (!site) throw new Error('Site not found')
@@ -119,15 +128,24 @@ export async function getSiteById(id: string) {
   const isAssigned = site.assignedUsers.some((su: any) => su.userId === session.user.id)
   if (!isAdmin && !isAssigned) throw new Error('Access denied')
 
-  const totalBudget = site.budgetEntries
-    .filter((b) => !b.isVoided)
-    .reduce((sum, b) => sum + b.amount, 0)
-  const totalSpent    = spentAgg._sum.grandTotal   ?? 0
-  const totalLabour   = spentAgg._sum.totalLabour  ?? 0
-  const totalMaterial = spentAgg._sum.totalMaterial ?? 0
-  const totalOther    = spentAgg._sum.totalOther   ?? 0
+  const totalBudget   = site.budgetEntries.filter((b) => !b.isVoided).reduce((sum, b) => sum + b.amount, 0)
+  const totalSpent    = spentAgg._sum.grandTotal    ?? 0
+  const advanceTotal  = advanceAgg._sum.amount      ?? 0
 
-  return { ...site, totalBudget, totalSpent, remainingBudget: totalBudget - totalSpent, totalLabour, totalMaterial, totalOther }
+  // Reclassify advances: move them out of Other and into Labour so UI totals are accurate
+  const totalLabour   = (spentAgg._sum.totalLabour   ?? 0) + advanceTotal
+  const totalMaterial =  spentAgg._sum.totalMaterial ?? 0
+  const totalOther    = (spentAgg._sum.totalOther    ?? 0) - advanceTotal
+
+  return {
+    ...site,
+    totalBudget,
+    totalSpent,
+    remainingBudget: totalBudget - totalSpent,
+    totalLabour,
+    totalMaterial,
+    totalOther,
+  }
 }
 
 export async function createSite(data: unknown): Promise<ActionResponse<{ id: string }>> {

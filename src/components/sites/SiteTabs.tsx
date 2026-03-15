@@ -63,11 +63,12 @@ export function SiteTabs({ site, isAdmin, allUsers = [] }: SiteTabsProps) {
 }
 
 function OverviewTab({ site }: { site: any }) {
-  // Use pre-aggregated totals from getSiteById — covers ALL records, not just the last 50.
-  const totalLabour   = site.totalLabour   ?? site.dailyRecords.reduce((s: number, r: any) => s + r.totalLabour, 0)
-  const totalMaterial = site.totalMaterial ?? site.dailyRecords.reduce((s: number, r: any) => s + r.totalMaterial, 0)
-  const totalOther    = site.totalOther    ?? site.dailyRecords.reduce((s: number, r: any) => s + r.totalOther, 0)
-  const grand = site.totalSpent ?? (totalLabour + totalMaterial + totalOther)
+  // Use pre-aggregated reclassified totals from getSiteById.
+  // Advances have already been moved from Other → Labour at the data layer.
+  const totalLabour   = site.totalLabour   ?? 0
+  const totalMaterial = site.totalMaterial ?? 0
+  const totalOther    = site.totalOther    ?? 0
+  const grand         = site.totalSpent    ?? (totalLabour + totalMaterial + totalOther)
 
   return (
     <div className="space-y-4">
@@ -137,16 +138,24 @@ function DailyRecordsTab({ site }: { site: any }) {
               </tr>
             </thead>
             <tbody>
-              {site.dailyRecords.map((r: any) => (
-                <tr key={r.id}>
-                  <td className="font-medium">{formatDate(r.date)}</td>
-                  <td className="hidden sm:table-cell">{formatCurrency(r.totalLabour)}</td>
-                  <td className="hidden sm:table-cell">{formatCurrency(r.totalMaterial)}</td>
-                  <td className="hidden md:table-cell">{formatCurrency(r.totalOther)}</td>
-                  <td className="font-semibold">{formatCurrency(r.grandTotal)}</td>
-                  <td className="hidden lg:table-cell text-gray-400 dark:text-slate-500 text-xs">{r.createdBy.name}</td>
-                </tr>
-              ))}
+              {site.dailyRecords.map((r: any) => {
+                // Reclassify advances: move them from Other → Labour for display
+                const advAmt = (r.otherExpenses ?? [])
+                  .filter((e: any) => e.category === 'Advance')
+                  .reduce((s: number, e: any) => s + e.amount, 0)
+                const labourDisplay = r.totalLabour + advAmt
+                const otherDisplay  = r.totalOther  - advAmt
+                return (
+                  <tr key={r.id}>
+                    <td className="font-medium">{formatDate(r.date)}</td>
+                    <td className="hidden sm:table-cell">{formatCurrency(labourDisplay)}</td>
+                    <td className="hidden sm:table-cell">{formatCurrency(r.totalMaterial)}</td>
+                    <td className="hidden md:table-cell">{formatCurrency(otherDisplay)}</td>
+                    <td className="font-semibold">{formatCurrency(r.grandTotal)}</td>
+                    <td className="hidden lg:table-cell text-gray-400 dark:text-slate-500 text-xs">{r.createdBy.name}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
