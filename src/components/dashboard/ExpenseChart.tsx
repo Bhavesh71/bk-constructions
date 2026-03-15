@@ -67,14 +67,14 @@ export function ExpenseChart({ data }: ExpenseChartProps) {
         <Tooltip
           formatter={(value: number, name: string) => [formatInr(value), name]}
           contentStyle={{
-            background: '#1e293b',
-            border: 'none',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border-base)',
             borderRadius: '10px',
-            color: '#f8fafc',
+            color: 'var(--text-primary)',
             fontSize: '12px',
           }}
-          itemStyle={{ color: '#cbd5e1' }}
-          labelStyle={{ color: '#fff', fontWeight: 600 }}
+          itemStyle={{ color: 'var(--text-secondary)' }}
+          labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
         />
         <Legend
           iconType="circle"

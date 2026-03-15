@@ -372,7 +372,18 @@ export async function getDashboardData() {
     }),
     prisma.dailyRecord.findMany({
       where: { ...recordWhere, date: { gte: sixMonthsAgo } },
-      select: { date: true, totalLabour: true, totalMaterial: true, totalOther: true, grandTotal: true },
+      select: {
+        date: true,
+        totalLabour: true,
+        totalMaterial: true,
+        totalOther: true,
+        grandTotal: true,
+        // Include advance expenses so we can reclassify them from Other → Labour
+        otherExpenses: {
+          where: { category: 'Advance' },
+          select: { amount: true },
+        },
+      },
       orderBy: { date: 'asc' },
     }),
     prisma.dailyRecord.findMany({
@@ -382,6 +393,11 @@ export async function getDashboardData() {
         totalOther: true, grandTotal: true,
         site: { select: { name: true } },
         createdBy: { select: { name: true } },
+        // Include advances so the dashboard table can reclassify Other → Labour
+        otherExpenses: {
+          where: { category: 'Advance' },
+          select: { amount: true },
+        },
       },
       orderBy: { date: 'desc' },
       take: 8,
@@ -417,10 +433,12 @@ export async function getDashboardData() {
     // Use UTC month to match UTC-midnight stored dates
     const key = `${monthNames[dt.getUTCMonth()]} ${String(dt.getUTCFullYear()).slice(2)}`
     const ex = trendMap.get(key) || { labour: 0, material: 0, other: 0, total: 0 }
+    // Reclassify advances: they are stored in totalOther but belong to Labour
+    const advAmt = r.otherExpenses.reduce((s: number, e: any) => s + e.amount, 0)
     trendMap.set(key, {
-      labour:   ex.labour   + r.totalLabour,
+      labour:   ex.labour   + r.totalLabour   + advAmt,
       material: ex.material + r.totalMaterial,
-      other:    ex.other    + r.totalOther,
+      other:    ex.other    + r.totalOther    - advAmt,
       total:    ex.total    + r.grandTotal,
     })
   }

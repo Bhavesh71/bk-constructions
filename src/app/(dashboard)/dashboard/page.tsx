@@ -175,7 +175,9 @@ export default async function DashboardPage() {
                   </td>
                 </tr>
               ) : (
-                recentRecords.map((r) => (
+                recentRecords.map((r) => {
+                    const advAmt = (r.otherExpenses ?? []).reduce((s: number, e: any) => s + e.amount, 0)
+                    return (
                   <tr key={r.id}>
                     <td>
                       <div className="flex items-center gap-2">
@@ -184,12 +186,13 @@ export default async function DashboardPage() {
                       </div>
                     </td>
                     <td className="text-gray-500 dark:text-slate-400">{formatDate(r.date)}</td>
-                    <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalLabour)}</td>
+                    <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalLabour + advAmt)}</td>
                     <td className="hidden md:table-cell text-financial">{formatCurrency(r.totalMaterial)}</td>
                     <td className="font-bold text-financial text-gray-900 dark:text-white">{formatCurrency(r.grandTotal)}</td>
                     <td className="hidden sm:table-cell text-gray-400 dark:text-slate-500">{r.createdBy.name.split(' ')[0]}</td>
                   </tr>
-                ))
+                    )
+                })
               )}
             </tbody>
           </table>
