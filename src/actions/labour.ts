@@ -564,87 +564,145 @@ export async function recordWeeklySalary(data: unknown): Promise<ActionResponse>
           data: { isPaid: true, paidAt: new Date() },
         })
 
-        // 4. Recalculate totalLabour for each affected DailyRecord (in parallel)
+        // 4. Recalculate totalLabour for each affected DailyRecord.
+        //
+        // OPTIMISATION: Prisma interactive transactions run over a *single* DB
+        // connection, so Promise.all() does not parallelise at the DB level —
+        // it just queues N×3 round-trips serially while paying the overhead of
+        // N concurrent Promises.  Two batch reads + N sequential writes is
+        // materially faster and avoids the 30-second timeout on large payrolls.
         const recordIds = [...new Set(unpaidEntries.map((e) => e.dailyRecordId))]
 
-        await Promise.all(recordIds.map(async (recordId) => {
-          const [labourSum, record] = await Promise.all([
-            tx.labourEntry.aggregate({
-              where: { dailyRecordId: recordId, isPaid: true, present: true },
-              _sum: { cost: true },
-            }),
-            tx.dailyRecord.findUnique({
-              where: { id: recordId },
-              select: { totalMaterial: true, totalOther: true },
-            }),
-          ])
+        const [labourSums, affectedRecords] = await Promise.all([
+          tx.labourEntry.groupBy({
+            by: ['dailyRecordId'],
+            where: { dailyRecordId: { in: recordIds }, isPaid: true, present: true },
+            _sum: { cost: true },
+          }),
+          tx.dailyRecord.findMany({
+            where: { id: { in: recordIds } },
+            select: { id: true, totalMaterial: true, totalOther: true },
+          }),
+        ])
 
-          if (record) {
-            const totalLabour = labourSum._sum.cost || 0
-            await tx.dailyRecord.update({
-              where: { id: recordId },
-              data: {
-                totalLabour,
-                grandTotal: totalLabour + record.totalMaterial + record.totalOther,
-              },
-            })
-          }
-        }))
+        const labourSumMap = new Map(labourSums.map((s) => [s.dailyRecordId, s._sum.cost || 0]))
+        const recordMap    = new Map(affectedRecords.map((r) => [r.id, r]))
+
+        for (const recordId of recordIds) {
+          const record = recordMap.get(recordId)
+          if (!record) continue
+          const totalLabour = labourSumMap.get(recordId) || 0
+          await tx.dailyRecord.update({
+            where: { id: recordId },
+            data: {
+              totalLabour,
+              grandTotal: totalLabour + record.totalMaterial + record.totalOther,
+            },
+          })
+        }
       }
 
-      // 5. Settle the selected advances
+      // 5. Settle the selected advances.
+      //
       //    IMPORTANT: When an advance is settled, its linked OtherExpense must be
       //    REMOVED from the DailyRecord it was originally recorded on.
       //
-      //    Without this fix:
-      //      - Advance day: totalOther includes advance amount  ← cash went out ✓
-      //      - Payment day: totalLabour includes full gross wage ← double-counts advance ✗
-      //
-      //    With this fix:
       //      - Advance day: OtherExpense deleted → totalOther reduced ← advance removed ✓
       //      - Payment day: totalLabour = full gross wage ✓
-      //      - Net effect: site total = gross wages only, no duplication ✓
+      //      - Net effect:  site total = gross wages only, no duplication ✓
+      //
+      //    OPTIMISATION: replace N×(findLinkedOtherExpense + aggregate + update) with:
+      //      • one batch fetch of all candidate OtherExpenses (across all records)
+      //      • in-memory matching — precise [ADV:id] first, legacy fallback second
+      //      • one deleteMany for all matched expenses
+      //      • one groupBy re-sum across all affected records
+      //      • fresh re-fetch of record totals (step 4 may have updated totalLabour)
+      //      • sequential per-record updates
       if (parsed.settledAdvanceIds.length > 0) {
         const advancesToSettle = await tx.labourAdvance.findMany({
           where: { id: { in: parsed.settledAdvanceIds } },
           include: {
             labour: { select: { name: true } },
-            dailyRecord: {
-              select: { id: true, totalOther: true, totalMaterial: true, totalLabour: true },
-            },
+            dailyRecord: { select: { id: true } },
           },
         })
 
-        await Promise.all(advancesToSettle.map(async (adv) => {
-          if (!adv.dailyRecord) return
+        const advDailyRecordIds = [
+          ...new Set(advancesToSettle.filter((a) => a.dailyRecord).map((a) => a.dailyRecord!.id)),
+        ]
 
-          // Find and delete the linked OtherExpense (precise [ADV:id] match or legacy fallback)
-          const linked = await findLinkedOtherExpense(
-            tx,
-            adv.dailyRecord.id,
-            adv.id,
-            adv.amount,
-            adv.labour.name,
-          )
-          if (linked) {
-            await tx.otherExpense.delete({ where: { id: linked.id } })
+        // Batch-fetch ALL advance OtherExpenses for these records in one round-trip
+        const allAdvanceExpenses = await tx.otherExpense.findMany({
+          where: { dailyRecordId: { in: advDailyRecordIds }, category: 'Advance' },
+          select: { id: true, dailyRecordId: true, amount: true, description: true },
+        })
+
+        // Build a mutable per-record pool so in-memory matching is O(n)
+        const expensesByRecord = new Map<string, typeof allAdvanceExpenses>()
+        for (const exp of allAdvanceExpenses) {
+          const list = expensesByRecord.get(exp.dailyRecordId) ?? []
+          list.push(exp)
+          expensesByRecord.set(exp.dailyRecordId, list)
+        }
+
+        // Match each advance to its OtherExpense entry in memory
+        const expenseIdsToDelete: string[] = []
+        for (const adv of advancesToSettle) {
+          if (!adv.dailyRecord) continue
+          const pool = expensesByRecord.get(adv.dailyRecord.id) ?? []
+
+          // Precise match: [ADV:<id>] marker embedded in description
+          let linked = pool.find((e) => e.description?.includes(`[ADV:${adv.id}]`))
+
+          // Legacy fallback: same amount + worker name in description
+          if (!linked) {
+            linked = pool.find(
+              (e) => e.amount === adv.amount && e.description?.includes(adv.labour.name),
+            )
           }
 
-          // Re-sum remaining OtherExpense on that day (handles multiple advances correctly)
-          const remaining = await tx.otherExpense.aggregate({
-            where: { dailyRecordId: adv.dailyRecord.id },
-            _sum: { amount: true },
-          })
-          const newTotalOther = remaining._sum.amount ?? 0
+          if (linked) {
+            expenseIdsToDelete.push(linked.id)
+            // Remove from pool so a second advance on the same day cannot match the same expense
+            expensesByRecord.set(adv.dailyRecord.id, pool.filter((e) => e.id !== linked!.id))
+          }
+        }
 
+        // Batch-delete all linked OtherExpenses in one round-trip
+        if (expenseIdsToDelete.length > 0) {
+          await tx.otherExpense.deleteMany({ where: { id: { in: expenseIdsToDelete } } })
+        }
+
+        // Re-sum remaining OtherExpenses per record and re-fetch current totals.
+        // Step 4 may have updated totalLabour on overlapping records, so we must
+        // not rely on the snapshot values from the advance.dailyRecord include above.
+        const [remainingSums, currentAdvRecords] = await Promise.all([
+          tx.otherExpense.groupBy({
+            by: ['dailyRecordId'],
+            where: { dailyRecordId: { in: advDailyRecordIds } },
+            _sum: { amount: true },
+          }),
+          tx.dailyRecord.findMany({
+            where: { id: { in: advDailyRecordIds } },
+            select: { id: true, totalLabour: true, totalMaterial: true },
+          }),
+        ])
+
+        const remainingSumMap  = new Map(remainingSums.map((s) => [s.dailyRecordId, s._sum.amount ?? 0]))
+        const currentAdvRecMap = new Map(currentAdvRecords.map((r) => [r.id, r]))
+
+        for (const recordId of advDailyRecordIds) {
+          const record = currentAdvRecMap.get(recordId)
+          if (!record) continue
+          const newTotalOther = remainingSumMap.get(recordId) ?? 0
           await tx.dailyRecord.update({
-            where: { id: adv.dailyRecord.id },
+            where: { id: recordId },
             data: {
               totalOther: newTotalOther,
-              grandTotal: adv.dailyRecord.totalLabour + adv.dailyRecord.totalMaterial + newTotalOther,
+              grandTotal: record.totalLabour + record.totalMaterial + newTotalOther,
             },
           })
-        }))
+        }
 
         // Mark all selected advances as settled
         await tx.labourAdvance.updateMany({
@@ -652,7 +710,7 @@ export async function recordWeeklySalary(data: unknown): Promise<ActionResponse>
           data: { isSettled: true, settledAt: new Date(), weeklyPayId: salary.id },
         })
       }
-    }, { timeout: 30000 })
+    }, { timeout: 60000 })
 
     revalidatePath('/labour')
     revalidatePath('/dashboard')
